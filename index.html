@@ -63,7 +63,7 @@
   @keyframes scrollNear{ from{background-position-x:0;} to{background-position-x:-90px;} }
   .stage-photo{position:absolute; inset:0; opacity:0; transition:opacity .5s ease; z-index:3;}
   .stage-photo.show{opacity:1;}
-  .stage-photo img{width:100%; height:100%; object-fit:cover; animation:kenburns 9s ease-in-out infinite alternate;}
+  .stage-photo img, .stage-photo video{width:100%; height:100%; object-fit:cover; animation:kenburns 9s ease-in-out infinite alternate;}
   @keyframes kenburns{ from{transform:scale(1) translate(0,0);} to{transform:scale(1.12) translate(-1.5%, 1%);} }
   .glass{position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 18%, transparent 82%, rgba(255,255,255,.06) 100%); pointer-events:none; z-index:6;}
   .rivet{position:absolute; width:7px; height:7px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #d9c489, #7a6535); z-index:7;}
@@ -228,6 +228,7 @@
   .player-status{font-family:'Space Mono',monospace; font-size:13px; color:var(--muted); text-align:center; min-height:18px;}
   .bonus-box{background:var(--charcoal); border:1px solid rgba(212,175,55,.3); border-radius:14px; padding:20px; max-width:420px; margin:20px auto;}
   .bonus-box h3{font-family:'Anton',sans-serif; color:var(--gold-bright); margin:0 0 10px;}
+  #bonusMedia img, #bonusMedia video{width:100%; height:100%; object-fit:cover; display:block;}
 
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
@@ -294,6 +295,7 @@
       <div class="player-status" id="playerStatus"></div>
     </div>
     <div id="bonusBox" class="bonus-box hidden">
+      <div id="bonusMedia"></div>
       <h3 id="bonusPrompt"></h3>
       <textarea id="bonusAnswerInput" rows="2" placeholder="Skriv ert svar..."></textarea>
       <button class="btn btn-gold" id="bonusSubmitBtn" style="width:100%; margin-top:10px;">Skicka svar</button>
@@ -335,6 +337,7 @@
 
     <div id="playView" class="panel hidden">
       <div id="adminStage"></div>
+      <div class="qtag" id="timerLabel" style="text-align:center; margin-top:8px;"></div>
 
       <div class="qactions" id="adminPlayActions">
         <button class="btn btn-gold" id="nextClueBtn">Nästa ledtråd →</button>
@@ -377,6 +380,9 @@
         <label>Rätt svar (stad/lag/spelare)</label>
         <input type="text" id="jAnswer" placeholder="T.ex. Kansas City" style="margin-bottom:14px;">
 
+        <label>Sekunder per ledtråd (auto-vidare om ingen gissar)</label>
+        <input type="number" id="jSeconds" value="25" min="5" style="margin-bottom:14px;">
+
         <div class="row-actions">
           <button class="btn btn-gold" id="saveJourneyBtn" type="button">Spara resa</button>
           <button class="btn btn-ghost" id="clearFormBtn" type="button">Rensa formulär</button>
@@ -412,6 +418,8 @@
         <p class="help">Frågor att köra mellan resorna. Spelarna svarar i text i spelarläget, ni bedömer och delar ut poäng manuellt.</p>
         <label>Fråga</label>
         <textarea id="bqPrompt" rows="2" placeholder="T.ex. Vilken spelare hade flest touchdowns i NFL 2025?" style="margin-bottom:12px;"></textarea>
+        <label>Bild- eller video-URL (valfritt)</label>
+        <input type="text" id="bqMedia" placeholder="https://... (.mp4/.webm = video)" style="margin-bottom:12px;">
         <div class="form-grid">
           <div><label>Facit (valfritt, bara för er)</label><input type="text" id="bqAnswer"></div>
           <div><label>Poäng</label><input type="number" id="bqPoints" value="5" min="1"></div>
@@ -433,6 +441,11 @@
     <div class="panel">
       <h2>Lag</h2>
       <p class="help" id="teamsHelp">Lägg till, döp om eller ta bort lag. Koden är vad laget skriver in i spelarläget.</p>
+      <div id="teamCountRow" class="row-actions hidden" style="align-items:center;">
+        <label style="margin:0;">Antal lag:</label>
+        <input type="number" id="teamCountInput" min="2" max="10" style="width:70px;">
+        <button class="btn btn-gold btn-sm" id="setTeamCountBtn" type="button">Sätt antal</button>
+      </div>
       <div id="teamRows" class="team-rows"></div>
       <button class="btn btn-ghost hidden" id="addTeamBtn" type="button">+ Lägg till lag</button>
     </div>
@@ -484,12 +497,20 @@ let editingId = null;
 let lastBuzzedAt = null;
 
 let myTeam = null; // player mode: the team object this device represents
+let timerJourneyId = null, timerRevealed = null, timerIntervalId = null, timerRemaining = null;
 
 const params = new URLSearchParams(location.search);
 let currentMode = params.get('mode') || 'select';
 let pendingTeamCode = params.get('team') || null;
 
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function isVideoUrl(url){ return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url||'') || /^data:video\//.test(url||''); }
+function mediaTag(url, cls){
+  if(!url) return '';
+  return isVideoUrl(url)
+    ? `<video class="${cls}" src="${escapeHtml(url)}" autoplay muted loop playsinline></video>`
+    : `<img class="${cls}" src="${escapeHtml(url)}">`;
+}
 
 /* ---------------- MODE ROUTING ---------------- */
 function setMode(mode, extra){
@@ -655,7 +676,7 @@ function stageHTML(j, {big}){
 
   return `<div class="stage ${size}">
     <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
-    <div class="stage-photo ${c && c.image ? 'show':''}">${c && c.image ? `<img src="${escapeHtml(c.image)}">` : ''}</div>
+    <div class="stage-photo ${c && c.image ? 'show':''}">${c && c.image ? mediaTag(c.image,'') : ''}</div>
     <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
     <div class="stage-points">${pts}p</div>
     ${j.revealed>0 ? `<div class="stage-text"><span class="clue-num">Ledtråd ${idx+1} / ${n}</span><div class="clue-text">${escapeHtml(c.text)}</div></div>`
@@ -677,6 +698,7 @@ function renderVisning(){
     document.getElementById('visningSub').textContent = 'Mellanfråga';
     document.getElementById('visningStage').innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+      ${q && q.media_url ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
       <div class="stage-empty"><div class="title">❓ Mellanfråga</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div></div>
     </div>`;
@@ -704,13 +726,13 @@ function renderLibrary(){
   el.innerHTML = journeys.map(j=>`
     <div class="journey-card ${j.is_done?'done':''}" data-open="${j.id}">
       <div class="jc-top"><div class="jc-title">${escapeHtml(j.title)}</div><div class="jc-status">${j.is_done?'Spelad':'Redo'}</div></div>
-      <div class="jc-meta">${j.clues.length} ledtrådar · ${clueOf(j,0).points}p → 1p</div>
+      <div class="jc-meta">${j.clues.length} ledtrådar · ${clueOf(j,0).points}p → 1p · ⏱${j.seconds_per_clue||25}s</div>
     </div>`).join('');
   el.querySelectorAll('[data-open]').forEach(c=> c.addEventListener('click', ()=> openJourney(c.dataset.open)));
 }
 async function openJourney(id){
   if(!requireAdmin()) return;
-  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
+  await sb.from('ps_journeys').update({ revealed:1, is_done:false }).eq('id', id);
   await sb.from('ps_game_state').update({ current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[], active_bonus_question_id:null }).eq('id',1);
 }
 function currentJourney(){ return journeys.find(j=>j.id===gameState.current_journey_id) || null; }
@@ -720,7 +742,7 @@ function renderPlayView(){
   document.getElementById('adminStage').innerHTML = stageHTML(j, {big:true});
   document.getElementById('adminPlayActions').classList.toggle('hidden', !j);
   document.getElementById('teamPlaySection').classList.toggle('hidden', !j);
-  if(!j) return;
+  if(!j){ ensureClueTimer(null); return; }
 
   document.getElementById('nextClueBtn').disabled = j.revealed >= j.clues.length || gameState.resolved===false;
   document.getElementById('nextClueBtn').textContent = j.revealed >= j.clues.length ? 'Sista ledtråden visad' : (gameState.resolved===false ? 'Lös gissningen först' : 'Nästa ledtråd →');
@@ -732,6 +754,37 @@ function renderPlayView(){
     document.getElementById('answerBox').classList.add('hidden');
   }
   renderTeamPlayGrid(j);
+  ensureClueTimer(j);
+}
+
+function ensureClueTimer(j){
+  const shouldRun = j && gameState.resolved!==false && !j.is_done && j.revealed>0 && j.revealed<j.clues.length;
+  if(!shouldRun){
+    clearClueTimer();
+    updateTimerLabel(j && j.is_done ? null : (j && j.revealed>=j.clues.length ? null : null));
+    return;
+  }
+  if(timerJourneyId===j.id && timerRevealed===j.revealed && timerIntervalId){ return; }
+  clearClueTimer();
+  timerJourneyId = j.id; timerRevealed = j.revealed;
+  timerRemaining = j.seconds_per_clue || 25;
+  updateTimerLabel(timerRemaining);
+  timerIntervalId = setInterval(()=>{
+    timerRemaining--;
+    updateTimerLabel(timerRemaining);
+    if(timerRemaining<=0){ clearClueTimer(); doAutoNextClue(); }
+  }, 1000);
+}
+function clearClueTimer(){ if(timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId=null; } timerJourneyId=null; timerRevealed=null; }
+function updateTimerLabel(sec){
+  const el = document.getElementById('timerLabel');
+  if(!el) return;
+  el.textContent = (sec===null || sec===undefined) ? '' : `⏱ Nästa ledtråd om ${sec}s (eller klicka manuellt)`;
+}
+async function doAutoNextClue(){
+  const j = currentJourney();
+  if(!j || j.revealed>=j.clues.length || gameState.resolved===false) return;
+  await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
 }
 
 document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
@@ -813,13 +866,17 @@ function clueRow(clue, i){
     <div class="pts-field"><label>Poäng</label><input type="number" class="pts-input" value="${c.points ?? (DEFAULT_SCALE[i]||1)}" min="1"></div>
     <div class="img-field">
       <textarea rows="2" placeholder="${i===0?'Gåta/liknelse som startar resan...':'Ledtråd '+(i+1)+'...'}">${escapeHtml(c.text||"")}</textarea>
-      <input type="text" class="img-url" placeholder="Bild-URL (valfritt)" value="${escapeHtml(c.image||"")}">
+      <input type="text" class="img-url" placeholder="Bild- eller video-URL (valfritt, .mp4/.webm = video)" value="${escapeHtml(c.image||"")}">
     </div>
-    <img class="img-preview ${c.image?'show':''}" src="${escapeHtml(c.image||"")}">
+    <span class="img-preview-wrap">${c.image ? mediaTag(c.image,'img-preview show') : `<span class="img-preview"></span>`}</span>
     <button type="button" title="Ta bort ledtråd">✕</button>`;
   row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberClues(); });
-  const imgInput = row.querySelector('.img-url'); const imgPreview = row.querySelector('.img-preview');
-  imgInput.addEventListener('input', ()=>{ if(imgInput.value.trim()){ imgPreview.src=imgInput.value.trim(); imgPreview.classList.add('show'); } else imgPreview.classList.remove('show'); });
+  const imgInput = row.querySelector('.img-url');
+  imgInput.addEventListener('input', ()=>{
+    const wrap = row.querySelector('.img-preview-wrap');
+    const v = imgInput.value.trim();
+    wrap.innerHTML = v ? mediaTag(v,'img-preview show') : `<span class="img-preview"></span>`;
+  });
   return row;
 }
 function renumberClues(){ document.querySelectorAll('#clueEditorList .clue-editor-row').forEach((row,i)=> row.querySelector('.cnum').textContent = i+1); }
@@ -834,6 +891,7 @@ function clearForm(){
   document.getElementById('editorHeading').textContent = 'Ny resa';
   document.getElementById('jTitle').value = '';
   document.getElementById('jAnswer').value = '';
+  document.getElementById('jSeconds').value = 25;
   renderClueEditor([
     {text:'',image:null,points:10},{text:'',image:null,points:8},{text:'',image:null,points:6},
     {text:'',image:null,points:4},{text:'',image:null,points:2},{text:'',image:null,points:1}
@@ -844,6 +902,7 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const title = document.getElementById('jTitle').value.trim() || 'Namnlös resa';
   const answer = document.getElementById('jAnswer').value.trim();
+  const seconds_per_clue = parseInt(document.getElementById('jSeconds').value,10) || 25;
   const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
     const text = row.querySelector('textarea').value.trim();
     const image = row.querySelector('.img-url').value.trim();
@@ -853,9 +912,9 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
   if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
   if(editingId){
-    await sb.from('ps_journeys').update({ title, answer, clues, revealed:0, is_done:false }).eq('id', editingId);
+    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, revealed:0, is_done:false }).eq('id', editingId);
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, clues, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
   }
   clearForm();
 });
@@ -866,7 +925,7 @@ function renderJourneyAdmin(){
   el.innerHTML = journeys.map(j=>`
     <div class="jl-row">
       <div class="jl-info"><b>${escapeHtml(j.title)}</b>
-        <div>${j.clues.length} ledtrådar · svar: ${escapeHtml(j.answer)} · ${clueOf(j,0).points}p→${clueOf(j,j.clues.length-1).points}p ${j.is_done?'· ✅ spelad':''}</div>
+        <div>${j.clues.length} ledtrådar · svar: ${escapeHtml(j.answer)} · ${clueOf(j,0).points}p→${clueOf(j,j.clues.length-1).points}p · ⏱${j.seconds_per_clue||25}s ${j.is_done?'· ✅ spelad':''}</div>
       </div>
       <div class="jl-actions">
         <button class="btn btn-ghost btn-sm" data-edit="${j.id}">Redigera</button>
@@ -882,6 +941,7 @@ function loadJourneyIntoForm(id){
   document.getElementById('editorHeading').textContent = 'Redigera: ' + j.title;
   document.getElementById('jTitle').value = j.title;
   document.getElementById('jAnswer').value = j.answer;
+  document.getElementById('jSeconds').value = j.seconds_per_clue || 25;
   renderClueEditor(j.clues);
   window.scrollTo({top:0, behavior:'smooth'});
 }
@@ -941,10 +1001,11 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const prompt = document.getElementById('bqPrompt').value.trim();
   const reference_answer = document.getElementById('bqAnswer').value.trim();
+  const media_url = document.getElementById('bqMedia').value.trim();
   const points = parseInt(document.getElementById('bqPoints').value,10) || 5;
   if(!prompt){ alert('Skriv en fråga.'); return; }
-  await sb.from('ps_bonus_questions').insert({ prompt, reference_answer: reference_answer||null, points, sort_order: bonusQuestions.length+1 });
-  document.getElementById('bqPrompt').value=''; document.getElementById('bqAnswer').value=''; document.getElementById('bqPoints').value=5;
+  await sb.from('ps_bonus_questions').insert({ prompt, reference_answer: reference_answer||null, media_url: media_url||null, points, sort_order: bonusQuestions.length+1 });
+  document.getElementById('bqPrompt').value=''; document.getElementById('bqAnswer').value=''; document.getElementById('bqMedia').value=''; document.getElementById('bqPoints').value=5;
 });
 
 /* ============================================================
@@ -953,13 +1014,18 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
 function renderTeamsTab(){
   document.getElementById('addTeamBtn').classList.toggle('hidden', !isAdmin);
   document.getElementById('manualScorePanel').classList.toggle('hidden', !isAdmin);
+  document.getElementById('teamCountRow').classList.toggle('hidden', !isAdmin);
   document.getElementById('teamsHelp').textContent = isAdmin ? 'Lägg till, döp om eller ta bort lag. Koden är vad laget skriver in i spelarläget.' : 'Logga in som admin för att redigera lagen.';
+  if(isAdmin && document.activeElement !== document.getElementById('teamCountInput')){
+    document.getElementById('teamCountInput').value = teams.length || 5;
+  }
   const el = document.getElementById('teamRows');
   el.innerHTML = teams.map((t,i)=>`
     <div class="team-row">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
       <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" maxlength="24" ${isAdmin?'':'disabled'}>
-      <span class="code">${escapeHtml(t.join_code||'----')}</span>
+      <span class="code" data-code="${escapeHtml(t.join_code||'----')}">${escapeHtml(t.join_code||'----')}</span>
+      ${isAdmin ? `<button type="button" data-copy="${escapeHtml(t.join_code||'')}" title="Kopiera kod" style="border-color:rgba(212,175,55,.4); color:var(--gold-bright);">⧉</button>` : ''}
       ${isAdmin && teams.length>2 ? `<button type="button" data-remove="${t.id}">✕</button>` : ''}
     </div>`).join('');
   if(isAdmin){
@@ -968,9 +1034,29 @@ function renderTeamsTab(){
       await sb.from('ps_teams').update({ name:v }).eq('id', e.target.dataset.id);
     }));
     el.querySelectorAll('button[data-remove]').forEach(btn=> btn.addEventListener('click', async ()=>{ await sb.from('ps_teams').delete().eq('id', btn.dataset.remove); }));
+    el.querySelectorAll('button[data-copy]').forEach(btn=> btn.addEventListener('click', ()=>{
+      const code = btn.dataset.copy;
+      if(navigator.clipboard){ navigator.clipboard.writeText(code).catch(()=>{}); }
+      btn.textContent='✓'; setTimeout(()=>{ btn.textContent='⧉'; }, 1200);
+    }));
   }
   renderManualScoreRows();
 }
+function genCode(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
+document.getElementById('setTeamCountBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const n = Math.max(2, Math.min(10, parseInt(document.getElementById('teamCountInput').value,10) || teams.length));
+  if(n > teams.length){
+    const rows = [];
+    for(let i=teams.length; i<n; i++) rows.push({ name:`Lag ${i+1}`, score:0, sort_order:i+1, join_code:genCode() });
+    await sb.from('ps_teams').insert(rows);
+  } else if(n < teams.length){
+    const toRemove = teams.slice(n);
+    const hasPoints = toRemove.some(t=>(t.score||0)!==0);
+    if(hasPoints && !confirm(`${toRemove.length} lag har poäng och kommer tas bort permanent. Fortsätta?`)) return;
+    for(const t of toRemove) await sb.from('ps_teams').delete().eq('id', t.id);
+  }
+});
 document.getElementById('addTeamBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   if(teams.length>=10) return;
@@ -1059,6 +1145,7 @@ function renderSpelare(){
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     bonusBox.classList.remove('hidden');
     document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
+    document.getElementById('bonusMedia').innerHTML = (q && q.media_url) ? `<div style="border-radius:10px; overflow:hidden; margin-bottom:12px; max-height:180px;">${mediaTag(q.media_url,'')}</div>` : '';
     const already = bonusAnswersForMe();
     document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan skickas igen för att ändra)' : '';
   } else {
