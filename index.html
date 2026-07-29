@@ -90,8 +90,10 @@
   .stage-buzz-banner .txt{font-family:'Anton',sans-serif; font-size:clamp(22px,4vw,40px); color:#fff; text-align:center; padding:0 20px; animation:pulse 1s ease-in-out infinite;}
   @keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
   .route-strip{position:absolute; left:14px; right:14px; bottom:0; height:5px; z-index:8; display:flex; gap:3px;}
-  .route-strip .dot{flex:1; background:rgba(244,246,242,.2); border-radius:2px;}
+  .route-strip .dot{flex:1; background:rgba(244,246,242,.2); border-radius:2px; position:relative; overflow:hidden;}
   .route-strip .dot.on{background:var(--gold-bright);}
+  .route-strip .dot.active-timer{background:rgba(244,246,242,.15);}
+  .route-strip .dot.active-timer .fill{position:absolute; top:0; left:0; bottom:0; width:100%; background:var(--gold-bright); transition:width 1s linear;}
   @media (prefers-reduced-motion: reduce){ .layer-far,.layer-mid,.layer-near,.stage-photo img,.stage-buzz-banner .txt{animation:none;} }
 
   /* AUTH BAR */
@@ -482,6 +484,10 @@
       <h2>Manuell poängjustering</h2>
       <p class="help">För rättningar, bonuspoäng eller avdrag.</p>
       <div id="manualScoreRows"></div>
+      <div class="row-actions" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="undoPointsBtn" type="button">↩️ Ångra senaste poäng</button>
+        <span class="help" id="undoPointsLabel" style="margin:0;"></span>
+      </div>
     </div>
 
     <div class="panel hidden" id="soundLibraryPanel">
@@ -494,7 +500,29 @@
       </div>
       <button class="btn btn-gold" id="sndSaveBtn" type="button">Lägg till ljud</button>
     </div>
+
+    <div class="panel hidden" id="gameControlPanel">
+      <h2>Hela spelet</h2>
+      <p class="help">Storgrepp — påverkar allt och alla.</p>
+      <div class="row-actions">
+        <button class="btn btn-gold" id="finishGameBtn" type="button">🏆 Avsluta spelet & visa vinnare</button>
+        <button class="btn btn-ghost" id="unfinishGameBtn" type="button">↺ Fortsätt spela igen</button>
+      </div>
+      <div class="row-actions" style="margin-top:10px;">
+        <button class="btn btn-red" id="resetGameBtn" type="button">🔄 Nollställ hela spelet (poäng & resor)</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="passwordPanel">
+      <h2>Byt ditt lösenord</h2>
+      <p class="help">Gäller bara kontot du är inloggad med just nu.</p>
+      <div class="modal-err" id="pwErr"></div>
+      <label>Nytt lösenord</label>
+      <input type="password" id="newPassword" style="margin-bottom:12px;">
+      <button class="btn btn-gold" id="changePwBtn" type="button">Uppdatera lösenord</button>
+    </div>
   </section>
+
 
   <footer>PÅ SPÅRET — DRAFT EXPRESS · Kopplad till Supabase för kvällens draft</footer>
 </div>
@@ -537,7 +565,7 @@ let editingId = null;
 let lastBuzzedAt = null;
 
 let myTeam = null; // player mode: the team object this device represents
-let timerJourneyId = null, timerRevealed = null, timerIntervalId = null, timerRemaining = null;
+let timerJourneyId = null, timerRevealed = null, timerIntervalId = null, timerRemaining = null, timerTotal = null;
 
 const params = new URLSearchParams(location.search);
 let currentMode = params.get('mode') || 'select';
@@ -698,8 +726,20 @@ function renderScoreboardInto(elId, highlightTeamId){
 }
 async function adjustScore(teamId, delta){
   if(!requireAdmin()) return;
-  const t = teams.find(x=>x.id===teamId); if(!t) return;
+  await applyScoreChange(teamId, delta, null);
+}
+async function applyScoreChange(teamId, delta, note){
+  const t = teams.find(x=>x.id===teamId);
+  if(!t) return;
   await sb.from('ps_teams').update({ score:(t.score||0)+delta }).eq('id', teamId);
+  await sb.from('ps_game_state').update({ last_points_team_id:teamId, last_points_delta:delta, last_points_note:note||null }).eq('id',1);
+}
+async function undoLastPoints(){
+  if(!requireAdmin()) return;
+  if(!gameState.last_points_team_id || gameState.last_points_delta==null) return;
+  const t = teams.find(x=>x.id===gameState.last_points_team_id);
+  if(t) await sb.from('ps_teams').update({ score:(t.score||0)-gameState.last_points_delta }).eq('id', t.id);
+  await sb.from('ps_game_state').update({ last_points_team_id:null, last_points_delta:null, last_points_note:null }).eq('id',1);
 }
 
 /* ============================================================
@@ -736,7 +776,7 @@ function seekJourneyVideo(container, fraction){
   const doSeek = ()=>{ try{ if(v.duration){ v.currentTime = Math.min(fraction*v.duration, v.duration-0.2); } v.play().catch(()=>{}); }catch(e){} };
   if(v.readyState >= 1 && v.duration) doSeek(); else v.addEventListener('loadedmetadata', doSeek, {once:true});
 }
-function renderStage(container, j, size){
+function renderStage(container, j, size, live){
   size = size || 'stage-lg';
   const arrived = !!(j && j.revealed >= j.clues.length);
   const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + arrived) : ('empty|'+size);
@@ -744,6 +784,7 @@ function renderStage(container, j, size){
     container.dataset.stageKey = key;
     container.dataset.lastImg = '';
     container.dataset.lastFraction = '';
+    container.dataset.lastRouteRevealed = '';
     container.innerHTML = stageShell(j, size, arrived);
   }
   if(!j) return;
@@ -780,8 +821,16 @@ function renderStage(container, j, size){
   }
 
   const routeEl = container.querySelector('.route-strip');
-  if(routeEl){
-    let dots=''; for(let i=0;i<n;i++) dots += `<div class="dot ${i<j.revealed?'on':''}"></div>`;
+  if(routeEl && container.dataset.lastRouteRevealed !== String(j.revealed)){
+    container.dataset.lastRouteRevealed = String(j.revealed);
+    let dots='';
+    for(let i=0;i<n;i++){
+      if(live && i === j.revealed-1 && j.revealed<n && !j.is_done){
+        dots += `<div class="dot active-timer"><div class="fill" style="width:100%"></div></div>`;
+      } else {
+        dots += `<div class="dot ${i<j.revealed?'on':''}"></div>`;
+      }
+    }
     routeEl.innerHTML = dots;
   }
 
@@ -799,6 +848,24 @@ function renderVisning(){
   renderScoreboardInto('scoreboardVisning', null);
   const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
   const stageEl = document.getElementById('visningStage');
+
+  if(gameState.finished){
+    document.getElementById('visningSub').textContent = 'Spelet är slut!';
+    stageEl.dataset.stageKey = 'finished';
+    const max = teams.length ? Math.max(...teams.map(t=>t.score||0)) : 0;
+    const winners = teams.filter(t=>(t.score||0)===max && max>0);
+    const winnerNames = winners.length ? winners.map(t=>escapeHtml(t.name)).join(' & ') : '—';
+    stageEl.innerHTML = `<div class="stage stage-lg">
+      <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+      <div class="glass"></div>
+      <div class="stage-empty">
+        <div class="title" style="font-size:16px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted);">🏆 Vinnare</div>
+        <div class="title" style="font-size:clamp(30px,7vw,56px); margin:6px 0;">${winnerNames}</div>
+        <div class="desc" style="font-family:'Anton',sans-serif; font-size:28px; color:var(--gold-bright);">${max} poäng</div>
+      </div>
+    </div>`;
+    return;
+  }
 
   if(gameState.active_bonus_question_id){
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
@@ -841,7 +908,14 @@ function renderLibrary(){
   document.getElementById('library').classList.toggle('hidden', !showLibrary);
   document.getElementById('playView').classList.toggle('hidden', !j);
   document.getElementById('bonusControl').classList.toggle('hidden', !showBonus);
-  document.getElementById('libraryHelp').textContent = 'Klicka "Starta resa" för att köra den.';
+
+  if(gameState.finished){
+    const max = teams.length ? Math.max(...teams.map(t=>t.score||0)) : 0;
+    const winners = teams.filter(t=>(t.score||0)===max && max>0).map(t=>t.name).join(' & ') || '—';
+    document.getElementById('libraryHelp').innerHTML = `🏆 <b>Spelet är avslutat</b> — vinnare: ${escapeHtml(winners)} (${max}p). Visningsläget visar vinnarskärmen. Klicka "Fortsätt spela igen" i Lag-fliken för att fortsätta.`;
+  } else {
+    document.getElementById('libraryHelp').textContent = 'Klicka "Starta resa" för att köra den.';
+  }
 
   if(showBonus){ renderBonusControl(); return; }
   if(!showLibrary) return;
@@ -892,7 +966,7 @@ function renderCountdown(containerId){
 function renderPlayView(){
   const j = currentJourney();
   if(!j){ ensureClueTimer(null); return; }
-  renderStage(document.getElementById('adminStage'), j, 'stage-lg');
+  renderStage(document.getElementById('adminStage'), j, 'stage-lg', true);
   renderCountdown('adminStage');
   document.getElementById('adminPlayActions').classList.toggle('hidden', !!gameState.countdown);
   document.getElementById('teamPlaySection').classList.toggle('hidden', !!gameState.countdown);
@@ -917,12 +991,19 @@ function ensureClueTimer(j){
   clearClueTimer();
   timerJourneyId = j.id; timerRevealed = j.revealed;
   timerRemaining = j.seconds_per_clue || 25;
+  timerTotal = timerRemaining;
   updateTimerLabel(timerRemaining);
+  updateTimerFill(1);
   timerIntervalId = setInterval(()=>{
     timerRemaining--;
     updateTimerLabel(timerRemaining);
+    updateTimerFill(Math.max(0, timerRemaining) / timerTotal);
     if(timerRemaining<=0){ clearClueTimer(); doAutoNextClue(); }
   }, 1000);
+}
+function updateTimerFill(fraction){
+  const el = document.querySelector('#adminStage .dot.active-timer .fill');
+  if(el) el.style.width = (fraction*100) + '%';
 }
 function clearClueTimer(){ if(timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId=null; } timerJourneyId=null; timerRevealed=null; }
 function updateTimerLabel(sec){
@@ -965,7 +1046,7 @@ async function awardCorrect(teamId){
   if(!j || !t) return;
   const idx = Math.max(0, j.revealed-1);
   const pts = clueOf(j, idx).points;
-  await sb.from('ps_teams').update({ score:(t.score||0)+pts }).eq('id', teamId);
+  await applyScoreChange(teamId, pts, `Resa: ${j.title}`);
   await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
   await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null }).eq('id',1);
 }
@@ -1021,8 +1102,7 @@ function renderBonusControl(){
         <div class="jl-actions"><button class="btn btn-gold btn-sm" data-award="${a.team_id}" data-pts="${q?q.points:5}">+${q?q.points:5}p</button></div></div>`;
     }).join('');
     el.querySelectorAll('[data-award]').forEach(b=> b.addEventListener('click', async ()=>{
-      const t = teams.find(x=>x.id===b.dataset.award); if(!t) return;
-      await sb.from('ps_teams').update({ score:(t.score||0)+parseInt(b.dataset.pts,10) }).eq('id', t.id);
+      await applyScoreChange(b.dataset.award, parseInt(b.dataset.pts,10), 'Mellanfråga');
     }));
   }
   const idx = bonusQuestions.findIndex(x=>x.id===gameState.active_bonus_question_id);
@@ -1190,8 +1270,7 @@ function renderMellanTab(){
           <div class="jl-actions"><button class="btn btn-gold btn-sm" data-award="${a.team_id}" data-pts="${q?q.points:5}">+${q?q.points:5}p</button></div></div>`;
       }).join('');
       list.querySelectorAll('[data-award]').forEach(b=> b.addEventListener('click', async ()=>{
-        const t = teams.find(x=>x.id===b.dataset.award); if(!t) return;
-        await sb.from('ps_teams').update({ score:(t.score||0)+parseInt(b.dataset.pts,10) }).eq('id', t.id);
+        await applyScoreChange(b.dataset.award, parseInt(b.dataset.pts,10), 'Mellanfråga');
       }));
     }
   } else {
@@ -1216,6 +1295,8 @@ function renderTeamsTab(){
   document.getElementById('addTeamBtn').classList.toggle('hidden', !isAdmin);
   document.getElementById('manualScorePanel').classList.toggle('hidden', !isAdmin);
   document.getElementById('soundLibraryPanel').classList.toggle('hidden', !isAdmin);
+  document.getElementById('gameControlPanel').classList.toggle('hidden', !isAdmin);
+  document.getElementById('passwordPanel').classList.toggle('hidden', !isAdmin);
   document.getElementById('teamCountRow').classList.toggle('hidden', !isAdmin);
   document.getElementById('teamsHelp').textContent = isAdmin ? 'Lägg till, döp om eller ta bort lag. Koden är vad laget skriver in i spelarläget.' : 'Logga in som admin för att redigera lagen.';
   if(isAdmin && document.activeElement !== document.getElementById('teamCountInput')){
@@ -1308,7 +1389,51 @@ function renderManualScoreRows(){
       <button type="button" data-id="${t.id}" data-d="5" style="width:auto; padding:0 10px;">+5</button>
     </div>`).join('');
   el.querySelectorAll('button').forEach(b=> b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10))));
+
+  const undoBtn = document.getElementById('undoPointsBtn');
+  const undoLabel = document.getElementById('undoPointsLabel');
+  if(gameState.last_points_team_id && gameState.last_points_delta!=null){
+    const t = teams.find(x=>x.id===gameState.last_points_team_id);
+    undoBtn.disabled = false;
+    undoLabel.textContent = `Senast: ${gameState.last_points_delta>0?'+':''}${gameState.last_points_delta}p till ${t?t.name:'okänt lag'}${gameState.last_points_note?' ('+gameState.last_points_note+')':''}`;
+  } else {
+    undoBtn.disabled = true;
+    undoLabel.textContent = 'Inget att ångra just nu.';
+  }
 }
+document.getElementById('undoPointsBtn').addEventListener('click', undoLastPoints);
+
+document.getElementById('finishGameBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  await sb.from('ps_game_state').update({ finished:true, current_journey_id:null, active_bonus_question_id:null }).eq('id',1);
+});
+document.getElementById('unfinishGameBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  await sb.from('ps_game_state').update({ finished:false }).eq('id',1);
+});
+document.getElementById('resetGameBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  if(!confirm('Nollställ HELA spelet: alla lags poäng till 0, alla resor tillbaka till start, mellanfrågor rensas. Är du säker?')) return;
+  for(const t of teams) await sb.from('ps_teams').update({ score:0 }).eq('id', t.id);
+  for(const j of journeys) await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
+  await sb.from('ps_bonus_answers').delete().neq('id','00000000-0000-0000-0000-000000000000');
+  await sb.from('ps_game_state').update({
+    current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
+    active_bonus_question_id:null, countdown:null, finished:false,
+    last_points_team_id:null, last_points_delta:null, last_points_note:null
+  }).eq('id',1);
+});
+
+document.getElementById('changePwBtn').addEventListener('click', async ()=>{
+  const errEl = document.getElementById('pwErr');
+  const pw = document.getElementById('newPassword').value;
+  if(!pw || pw.length<6){ errEl.textContent = 'Lösenordet måste ha minst 6 tecken.'; return; }
+  errEl.textContent = 'Uppdaterar…';
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if(error){ errEl.textContent = 'Kunde inte uppdatera: ' + error.message; return; }
+  errEl.textContent = '✅ Lösenordet är uppdaterat.';
+  document.getElementById('newPassword').value = '';
+});
 
 /* ============================================================
    SPELARLÄGE (player mode)
