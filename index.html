@@ -61,9 +61,13 @@
   @keyframes scrollFar{ from{background-position-x:0;} to{background-position-x:-220px;} }
   @keyframes scrollMid{ from{transform:translateX(0);} to{transform:translateX(-140px);} }
   @keyframes scrollNear{ from{background-position-x:0;} to{background-position-x:-90px;} }
-  .glass{position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 18%, transparent 82%, rgba(255,255,255,.06) 100%); pointer-events:none;}
-  .window-caption{position:absolute; bottom:8px; left:14px; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:rgba(244,246,242,.55); text-transform:uppercase; z-index:4;}
-  @media (prefers-reduced-motion: reduce){ .layer-far,.layer-mid,.layer-near{animation:none;} }
+  .glass{position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 18%, transparent 82%, rgba(255,255,255,.06) 100%); pointer-events:none; z-index:6;}
+  .window-caption{position:absolute; bottom:8px; left:14px; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:rgba(244,246,242,.85); text-transform:uppercase; z-index:7; text-shadow:0 1px 3px rgba(0,0,0,.8);}
+  .window-photo{position:absolute; inset:0; opacity:0; transition:opacity .5s ease; z-index:3;}
+  .window-photo.show{opacity:1;}
+  .window-photo img{width:100%; height:100%; object-fit:cover; animation:kenburns 9s ease-in-out infinite alternate;}
+  @keyframes kenburns{ from{transform:scale(1) translate(0,0);} to{transform:scale(1.12) translate(-1.5%, 1%);} }
+  @media (prefers-reduced-motion: reduce){ .layer-far,.layer-mid,.layer-near{animation:none;} .window-photo img{animation:none;} }
 
   .field-divider{height:9px; margin:16px auto 0; max-width:560px; background:repeating-linear-gradient(90deg, var(--line-white) 0 22px, transparent 22px 40px); opacity:.3; border-radius:2px;}
 
@@ -159,9 +163,14 @@
   .train-icon{position:absolute; top:-18px; width:26px; text-align:center; font-size:19px; transform:translateX(-50%); transition:left .35s ease;}
 
   .clue-log{display:flex; flex-direction:column; gap:10px; margin-bottom:18px;}
-  .clue-item{background:rgba(17,21,17,.6); border:1px solid rgba(212,175,55,.25); border-radius:10px; padding:14px 16px; font-size:16.5px; line-height:1.5;}
+  .clue-item{background:rgba(17,21,17,.6); border:1px solid rgba(212,175,55,.25); border-radius:10px; padding:14px 16px; font-size:16.5px; line-height:1.5; display:flex; gap:12px; align-items:flex-start;}
   .clue-item .cn{font-family:'Space Mono',monospace; font-size:10.5px; color:var(--gold-bright); border:1px solid var(--gold-bright); border-radius:20px; padding:1px 8px; margin-right:8px;}
+  .clue-item .thumb{width:52px; height:52px; border-radius:8px; object-fit:cover; flex-shrink:0; border:1px solid rgba(212,175,55,.4);}
   .clue-log .empty-hint{color:var(--muted); font-style:italic; font-size:14px;}
+  .clue-editor-row .img-field{flex:1; display:flex; flex-direction:column; gap:6px;}
+  .clue-editor-row .img-field input{font-size:12.5px;}
+  .clue-editor-row .img-preview{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid rgba(212,175,55,.3); flex-shrink:0; display:none;}
+  .clue-editor-row .img-preview.show{display:block;}
 
   .qactions{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;}
 
@@ -206,14 +215,15 @@
     <div class="sub">Draft Express — följ ledtrådarna genom NFL-landet och gissa rätt stad</div>
   </header>
 
-  <div class="window">
+  <div class="window" id="trainWindow">
     <div class="sky"></div>
     <div class="layer layer-far"></div>
     <div class="layer layer-mid"></div>
     <div class="layer layer-near"></div>
+    <div class="window-photo" id="windowPhoto"></div>
     <div class="glass"></div>
     <div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
-    <div class="window-caption">Nu passerar vi NFL-land</div>
+    <div class="window-caption" id="windowCaption">Nu passerar vi NFL-land</div>
   </div>
 
   <div class="field-divider"></div>
@@ -559,14 +569,25 @@ function renderClueEditor(clues){
   clues.forEach((c,i)=> list.appendChild(clueRow(c,i)));
   updateScalePreview();
 }
-function clueRow(text, i){
+function clueRow(clue, i){
+  const c = (typeof clue === 'string') ? { text: clue, image: null } : (clue || { text:'', image:null });
   const row = document.createElement('div');
   row.className = 'clue-editor-row';
   row.innerHTML = `<span class="cnum">${i+1}</span>
-    <textarea rows="2" placeholder="Ledtråd ${i+1}...">${escapeHtml(text||"")}</textarea>
+    <div class="img-field">
+      <textarea rows="2" placeholder="Ledtråd ${i+1}... (vad hör lagen?)">${escapeHtml(c.text||"")}</textarea>
+      <input type="text" class="img-url" placeholder="Bild-URL för vad man ser genom fönstret (valfritt)" value="${escapeHtml(c.image||"")}">
+    </div>
+    <img class="img-preview ${c.image?'show':''}" src="${escapeHtml(c.image||"")}">
     <button type="button" title="Ta bort ledtråd">✕</button>`;
   row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberClues(); updateScalePreview(); });
   row.querySelector('textarea').addEventListener('input', updateScalePreview);
+  const imgInput = row.querySelector('.img-url');
+  const imgPreview = row.querySelector('.img-preview');
+  imgInput.addEventListener('input', ()=>{
+    if(imgInput.value.trim()){ imgPreview.src = imgInput.value.trim(); imgPreview.classList.add('show'); }
+    else { imgPreview.classList.remove('show'); }
+  });
   return row;
 }
 function renumberClues(){
@@ -605,7 +626,11 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   const answer = document.getElementById('jAnswer').value.trim();
   const start_points = parseInt(document.getElementById('jStart').value,10) || 20;
   const step = parseInt(document.getElementById('jStep').value,10) || 0;
-  const clues = [...document.querySelectorAll('#clueEditorList textarea')].map(t=>t.value.trim()).filter(Boolean);
+  const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
+    const text = row.querySelector('textarea').value.trim();
+    const image = row.querySelector('.img-url').value.trim();
+    return text ? { text, image: image || null } : null;
+  }).filter(Boolean);
 
   if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
   if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
@@ -689,7 +714,8 @@ function renderPlayView(){
   const j = currentJourney();
   document.getElementById('adminPlayActions').classList.toggle('hidden', !isAdmin);
   document.getElementById('teamPlaySection').classList.toggle('hidden', !isAdmin);
-  if(!j){ return; }
+  if(!j){ renderWindowVisual(null); return; }
+  renderWindowVisual(j);
 
   document.getElementById('playTag').textContent = j.title;
   document.getElementById('playPoints').textContent = pointsForClue(j, Math.max(0,j.revealed-1)) + 'p';
@@ -730,9 +756,33 @@ function renderRoute(j){
 function renderClueLog(j){
   const el = document.getElementById('clueLog');
   if(j.revealed === 0){ el.innerHTML = `<div class="empty-hint">Klicka "Nästa ledtråd" för att avslöja den första.</div>`; return; }
-  el.innerHTML = j.clues.slice(0, j.revealed).map((c,i)=>
-    `<div class="clue-item"><span class="cn">Ledtråd ${i+1}</span>${escapeHtml(c)}</div>`
-  ).join('');
+  el.innerHTML = j.clues.slice(0, j.revealed).map((c,i)=>{
+    const text = (typeof c === 'string') ? c : c.text;
+    const image = (typeof c === 'string') ? null : c.image;
+    return `<div class="clue-item">
+      ${image ? `<img class="thumb" src="${escapeHtml(image)}" alt="">` : ''}
+      <div><span class="cn">Ledtråd ${i+1}</span>${escapeHtml(text)}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderWindowVisual(j){
+  const photoEl = document.getElementById('windowPhoto');
+  const captionEl = document.getElementById('windowCaption');
+  let image = null;
+  if(j && j.revealed > 0){
+    const c = j.clues[j.revealed-1];
+    image = (typeof c === 'string') ? null : (c && c.image);
+  }
+  if(image){
+    photoEl.innerHTML = `<img src="${escapeHtml(image)}" alt="">`;
+    photoEl.classList.add('show');
+    captionEl.textContent = 'Vad ser ni genom fönstret?';
+  } else {
+    photoEl.classList.remove('show');
+    photoEl.innerHTML = '';
+    captionEl.textContent = j ? 'Nu passerar vi NFL-land' : 'Nu passerar vi NFL-land';
+  }
 }
 
 document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
