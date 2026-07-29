@@ -241,6 +241,18 @@
   .sound-row .snd-name{flex:1; font-weight:600;}
   .sound-row select{width:auto; min-width:140px;}
 
+  .media-card{background:var(--charcoal); border:1px solid rgba(244,246,242,.15); border-radius:12px; overflow:hidden; cursor:pointer; transition:border-color .12s, transform .08s;}
+  .media-card:hover{border-color:var(--gold-bright); transform:translateY(-2px);}
+  .media-card .thumb-wrap{height:90px; background:#000;}
+  .media-card .thumb-wrap img, .media-card .thumb-wrap video{width:100%; height:100%; object-fit:cover;}
+  .media-card .mc-info{padding:8px 10px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
+  .media-card .mc-name{font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .media-card .mc-del{background:transparent; border:none; color:#e28b83; cursor:pointer; font-size:14px; flex-shrink:0;}
+  .url-with-picker{display:flex; gap:6px; align-items:center;}
+  .url-with-picker input{flex:1;}
+  .pick-btn{background:var(--charcoal); border:1px solid rgba(255,182,18,.4); color:var(--gold-bright); border-radius:7px; width:36px; height:36px; flex-shrink:0; cursor:pointer; font-size:15px;}
+  .pick-btn:hover{background:rgba(255,182,18,.15);}
+
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
 </head>
@@ -389,6 +401,31 @@
     </div>
 
     <div id="resorAdmin" class="hidden">
+      <div class="panel" id="mediaLibraryPanel">
+        <h2>🖼️ Mediabibliotek</h2>
+        <p class="help">Ladda upp bilder/videor från din enhet eller klistra in en länk. Sen kan du välja fritt bland dem på resor och mellanfrågor — och byta runt när du vill.</p>
+        <div id="mediaGrid" class="journey-grid" style="margin-bottom:16px;"></div>
+        <div class="form-grid">
+          <div>
+            <label>Ladda upp från enheten</label>
+            <input type="file" id="mediaFileInput" accept="image/*,video/*">
+          </div>
+          <div>
+            <label>Namn</label>
+            <input type="text" id="mediaFileName" placeholder="T.ex. Kansas City skyline">
+          </div>
+        </div>
+        <button class="btn btn-gold" id="mediaUploadBtn" type="button" style="margin-bottom:8px;">⬆️ Ladda upp</button>
+        <div class="modal-err" id="mediaUploadStatus"></div>
+        <hr class="sep">
+        <p class="help" style="margin-bottom:10px;">…eller lägg till en befintlig länk direkt:</p>
+        <div class="form-grid">
+          <div><label>Namn</label><input type="text" id="mediaUrlName"></div>
+          <div><label>URL</label><input type="text" id="mediaUrlUrl" placeholder="https://..."></div>
+        </div>
+        <button class="btn btn-ghost" id="mediaUrlAddBtn" type="button">+ Lägg till länk</button>
+      </div>
+
       <div class="panel">
         <h2 id="editorHeading">Ny resa</h2>
         <p class="help">Sex ledtrådar, 10 → 8 → 6 → 4 → 2 → 1 poäng. Första ledtråden (10p) ska vara en gåta/liknelse — inte ett rakt sakfaktum — precis som i På Spåret. Sista är den självklara upplösningen.</p>
@@ -407,11 +444,17 @@
         <input type="number" id="jSeconds" value="25" min="5" style="margin-bottom:14px;">
 
         <label>Genomgående resevideo (valfritt — spelas hela resan, spolas fram i takt med ledtrådarna)</label>
-        <input type="text" id="jVideo" placeholder="https://... .mp4 (bil/tåg-vy genom rutan)" style="margin-bottom:14px;">
+        <div class="url-with-picker" style="margin-bottom:14px;">
+          <input type="text" id="jVideo" placeholder="https://... .mp4 (bil/tåg-vy genom rutan)">
+          <button type="button" class="pick-btn" id="jVideoPick" title="Välj från biblioteket">🖼️</button>
+        </div>
         <p class="help" style="margin-top:-8px;">Finns en video här visas den istället för bilderna på enskilda ledtrådar.</p>
 
         <label>Ankomstbild/-video (visas när sista ledtråden nås — den riktiga staden)</label>
-        <input type="text" id="jArrival" placeholder="https://... bild eller video av den riktiga destinationen" style="margin-bottom:14px;">
+        <div class="url-with-picker" style="margin-bottom:14px;">
+          <input type="text" id="jArrival" placeholder="https://... bild eller video av den riktiga destinationen">
+          <button type="button" class="pick-btn" id="jArrivalPick" title="Välj från biblioteket">🖼️</button>
+        </div>
         <p class="help" style="margin-top:-8px;">Byter automatiskt ut körvideon mot detta så fort resan når slutstationen.</p>
 
         <div class="row-actions">
@@ -450,7 +493,10 @@
         <label>Fråga</label>
         <textarea id="bqPrompt" rows="2" placeholder="T.ex. Vilken spelare hade flest touchdowns i NFL 2025?" style="margin-bottom:12px;"></textarea>
         <label>Bild- eller video-URL (valfritt)</label>
-        <input type="text" id="bqMedia" placeholder="https://... (.mp4/.webm = video)" style="margin-bottom:12px;">
+        <div class="url-with-picker" style="margin-bottom:12px;">
+          <input type="text" id="bqMedia" placeholder="https://... (.mp4/.webm = video)">
+          <button type="button" class="pick-btn" id="bqMediaPick" title="Välj från biblioteket">🖼️</button>
+        </div>
         <div class="form-grid">
           <div><label>Facit (valfritt, bara för er)</label><input type="text" id="bqAnswer"></div>
           <div><label>Poäng</label><input type="number" id="bqPoints" value="5" min="1"></div>
@@ -541,6 +587,17 @@
   </div>
 </div>
 
+<div id="mediaPickerModal" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:520px;">
+    <h3>Välj från biblioteket</h3>
+    <p>Klicka på ett kort för att använda det i fältet.</p>
+    <div id="mediaPickerGrid" class="journey-grid" style="max-height:50vh; overflow-y:auto; margin-bottom:14px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="mediaPickerCancel" type="button" style="flex:1;">Stäng</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://fajtxhxwvnuhfkytdcqi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhanR4aHh3dm51aGZreXRkY3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NTk3NjMsImV4cCI6MjA5OTMzNTc2M30.b7rMbVl_56fbRSESVO8HT5XuGoeshtY4jozfZ9T8Aqg';
@@ -560,6 +617,7 @@ let gameState = { current_journey_id:null, buzzed_team_id:null, resolved:true, o
 let bonusQuestions = [];
 let bonusAnswers = [];
 let sounds = [];
+let media = [];
 let isAdmin = false;
 let editingId = null;
 let lastBuzzedAt = null;
@@ -633,6 +691,7 @@ async function fetchJourneys(){ const {data} = await sb.from('ps_journeys').sele
 async function fetchGameState(){ const {data} = await sb.from('ps_game_state').select('*').eq('id',1).single(); if(data) gameState = data; }
 async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').order('sort_order'); bonusQuestions = data||[]; }
 async function fetchSounds(){ const {data} = await sb.from('ps_sounds').select('*').order('created_at'); sounds = data||[]; }
+async function fetchMedia(){ const {data} = await sb.from('ps_media').select('*').order('created_at', {ascending:false}); media = data||[]; }
 async function fetchBonusAnswers(){
   if(!gameState.active_bonus_question_id){ bonusAnswers=[]; return; }
   const {data} = await sb.from('ps_bonus_answers').select('*').eq('question_id', gameState.active_bonus_question_id);
@@ -640,7 +699,7 @@ async function fetchBonusAnswers(){
 }
 
 async function refetchAll(){
-  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState(), fetchBonusQuestions(), fetchSounds()]);
+  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState(), fetchBonusQuestions(), fetchSounds(), fetchMedia()]);
   await fetchBonusAnswers();
   checkBuzzSound();
   renderAll();
@@ -685,6 +744,7 @@ sb.channel('ps-live')
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_bonus_questions' }, refetchAll)
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_bonus_answers' }, refetchAll)
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_sounds' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_media' }, refetchAll)
   .subscribe();
 
 /* ---------------- RENDER ROOT ---------------- */
@@ -1125,7 +1185,7 @@ document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
 function renderResorTab(){
   document.getElementById('resorLocked').classList.toggle('hidden', isAdmin);
   document.getElementById('resorAdmin').classList.toggle('hidden', !isAdmin);
-  if(isAdmin){ renderJourneyAdmin(); document.getElementById('buzzerSoundUrl').value = gameState.buzzer_sound_url || ''; }
+  if(isAdmin){ renderJourneyAdmin(); renderMediaLibrary(); document.getElementById('buzzerSoundUrl').value = gameState.buzzer_sound_url || ''; }
 }
 const DEFAULT_SCALE = [10,8,6,4,2,1];
 function renderClueEditor(clues){
@@ -1141,17 +1201,21 @@ function clueRow(clue, i){
     <div class="pts-field"><label>Poäng</label><input type="number" class="pts-input" value="${c.points ?? (DEFAULT_SCALE[i]||1)}" min="1"></div>
     <div class="img-field">
       <textarea rows="2" placeholder="${i===0?'Gåta/liknelse som startar resan...':'Ledtråd '+(i+1)+'...'}">${escapeHtml(c.text||"")}</textarea>
-      <input type="text" class="img-url" placeholder="Bild- eller video-URL (valfritt, .mp4/.webm = video)" value="${escapeHtml(c.image||"")}">
+      <div class="url-with-picker">
+        <input type="text" class="img-url" placeholder="Bild- eller video-URL (valfritt, .mp4/.webm = video)" value="${escapeHtml(c.image||"")}">
+        ${pickBtnHTML()}
+      </div>
     </div>
     <span class="img-preview-wrap">${c.image ? mediaTag(c.image,'img-preview show') : `<span class="img-preview"></span>`}</span>
     <button type="button" title="Ta bort ledtråd">✕</button>`;
-  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberClues(); });
+  row.querySelector('button[title="Ta bort ledtråd"]').addEventListener('click', ()=>{ row.remove(); renumberClues(); });
   const imgInput = row.querySelector('.img-url');
   imgInput.addEventListener('input', ()=>{
     const wrap = row.querySelector('.img-preview-wrap');
     const v = imgInput.value.trim();
     wrap.innerHTML = v ? mediaTag(v,'img-preview show') : `<span class="img-preview"></span>`;
   });
+  row.querySelector('.pick-btn').addEventListener('click', ()=> openMediaPicker(imgInput));
   return row;
 }
 function renumberClues(){ document.querySelectorAll('#clueEditorList .clue-editor-row').forEach((row,i)=> row.querySelector('.cnum').textContent = i+1); }
@@ -1197,6 +1261,79 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   }
   clearForm();
 });
+function renderMediaLibrary(){
+  const el = document.getElementById('mediaGrid');
+  if(!media.length){ el.innerHTML = `<p class="help">Inget media uppladdat än.</p>`; return; }
+  el.innerHTML = media.map(m=>`
+    <div class="media-card">
+      <div class="thumb-wrap">${mediaTag(m.url,'')}</div>
+      <div class="mc-info">
+        <span class="mc-name">${escapeHtml(m.name)}</span>
+        <button class="mc-del" data-delmedia="${m.id}" type="button" title="Ta bort">✕</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('[data-delmedia]').forEach(b=> b.addEventListener('click', async e=>{
+    e.stopPropagation();
+    if(confirm('Ta bort mediet från biblioteket?')) await sb.from('ps_media').delete().eq('id', b.dataset.delmedia);
+  }));
+}
+
+document.getElementById('mediaUploadBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const fileInput = document.getElementById('mediaFileInput');
+  const statusEl = document.getElementById('mediaUploadStatus');
+  const file = fileInput.files && fileInput.files[0];
+  if(!file){ statusEl.textContent = 'Välj en fil först.'; return; }
+  const name = document.getElementById('mediaFileName').value.trim() || file.name;
+  const kind = file.type.startsWith('video') ? 'video' : 'image';
+  statusEl.textContent = 'Laddar upp…';
+  const path = `${Date.now()}-${file.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+  const { error: upErr } = await sb.storage.from('ps-media').upload(path, file, { upsert:false });
+  if(upErr){ statusEl.textContent = 'Fel: ' + upErr.message; return; }
+  const { data: pub } = sb.storage.from('ps-media').getPublicUrl(path);
+  await sb.from('ps_media').insert({ name, url: pub.publicUrl, kind });
+  statusEl.textContent = '✅ Uppladdat!';
+  fileInput.value = ''; document.getElementById('mediaFileName').value = '';
+});
+
+document.getElementById('mediaUrlAddBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const name = document.getElementById('mediaUrlName').value.trim();
+  const url = document.getElementById('mediaUrlUrl').value.trim();
+  if(!name || !url){ alert('Fyll i både namn och URL.'); return; }
+  const kind = isVideoUrl(url) ? 'video' : 'image';
+  await sb.from('ps_media').insert({ name, url, kind });
+  document.getElementById('mediaUrlName').value=''; document.getElementById('mediaUrlUrl').value='';
+});
+
+/* ---- shared media picker modal: wires any URL <input> to the library ---- */
+let mediaPickerTarget = null;
+function openMediaPicker(inputEl){
+  mediaPickerTarget = inputEl;
+  const grid = document.getElementById('mediaPickerGrid');
+  grid.innerHTML = media.length ? media.map(m=>`
+    <div class="media-card" data-pick="${m.id}">
+      <div class="thumb-wrap">${mediaTag(m.url,'')}</div>
+      <div class="mc-info"><span class="mc-name">${escapeHtml(m.name)}</span></div>
+    </div>`).join('') : `<p class="help">Inget i biblioteket än — lägg till media under Resor-fliken först.</p>`;
+  grid.querySelectorAll('[data-pick]').forEach(card=> card.addEventListener('click', ()=>{
+    const m = media.find(x=>x.id===card.dataset.pick);
+    if(m && mediaPickerTarget){
+      mediaPickerTarget.value = m.url;
+      mediaPickerTarget.dispatchEvent(new Event('input', { bubbles:true }));
+    }
+    document.getElementById('mediaPickerModal').classList.add('hidden');
+  }));
+  document.getElementById('mediaPickerModal').classList.remove('hidden');
+}
+document.getElementById('mediaPickerCancel').addEventListener('click', ()=> document.getElementById('mediaPickerModal').classList.add('hidden'));
+
+function pickBtnHTML(){ return `<button type="button" class="pick-btn" title="Välj från biblioteket">🖼️</button>`; }
+
+document.getElementById('jVideoPick').addEventListener('click', ()=> openMediaPicker(document.getElementById('jVideo')));
+document.getElementById('jArrivalPick').addEventListener('click', ()=> openMediaPicker(document.getElementById('jArrival')));
+document.getElementById('bqMediaPick').addEventListener('click', ()=> openMediaPicker(document.getElementById('bqMedia')));
+
 function renderJourneyAdmin(){
   document.getElementById('journeyCount').textContent = journeys.length;
   const el = document.getElementById('journeyListAdmin');
