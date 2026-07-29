@@ -384,8 +384,12 @@
         <input type="number" id="jSeconds" value="25" min="5" style="margin-bottom:14px;">
 
         <label>Genomgående resevideo (valfritt — spelas hela resan, spolas fram i takt med ledtrådarna)</label>
-        <input type="text" id="jVideo" placeholder="https://... .mp4 (bil/tåg från start till mål)" style="margin-bottom:14px;">
+        <input type="text" id="jVideo" placeholder="https://... .mp4 (bil/tåg-vy genom rutan)" style="margin-bottom:14px;">
         <p class="help" style="margin-top:-8px;">Finns en video här visas den istället för bilderna på enskilda ledtrådar.</p>
+
+        <label>Ankomstbild/-video (visas när sista ledtråden nås — den riktiga staden)</label>
+        <input type="text" id="jArrival" placeholder="https://... bild eller video av den riktiga destinationen" style="margin-bottom:14px;">
+        <p class="help" style="margin-top:-8px;">Byter automatiskt ut körvideon mot detta så fort resan når slutstationen.</p>
 
         <div class="row-actions">
           <button class="btn btn-gold" id="saveJourneyBtn" type="button">Spara resa</button>
@@ -661,7 +665,7 @@ async function adjustScore(teamId, delta){
    Stateful: rebuilds the shell only when the journey/video changes,
    so a full-journey video keeps playing instead of restarting.
    ============================================================ */
-function stageShell(j, size){
+function stageShell(j, size, arrived){
   if(!j){
     return `<div class="stage ${size}">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
@@ -669,10 +673,14 @@ function stageShell(j, size){
       <div class="stage-empty"><div class="title">🚂 Väntar på nästa resa</div><div class="desc">Admin startar snart en ny resa att gissa.</div></div>
     </div>`;
   }
-  const hasVideo = !!j.video_url;
+  const showArrival = arrived && j.arrival_media_url;
+  const hasVideo = !showArrival && !!j.video_url;
   return `<div class="stage ${size}">
     <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
-    <div class="stage-photo ${hasVideo?'show':''}">${hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" autoplay muted loop playsinline></video>` : ''}</div>
+    <div class="stage-photo ${(hasVideo||showArrival)?'show':''}">${
+      showArrival ? mediaTag(j.arrival_media_url,'') :
+      hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" autoplay muted loop playsinline></video>` : ''
+    }</div>
     <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
     <div class="stage-points"></div>
     <div class="stage-text-wrap"></div>
@@ -688,12 +696,13 @@ function seekJourneyVideo(container, fraction){
 }
 function renderStage(container, j, size){
   size = size || 'stage-lg';
-  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + size) : ('empty|'+size);
+  const arrived = !!(j && j.revealed >= j.clues.length);
+  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + arrived) : ('empty|'+size);
   if(container.dataset.stageKey !== key){
     container.dataset.stageKey = key;
     container.dataset.lastImg = '';
     container.dataset.lastFraction = '';
-    container.innerHTML = stageShell(j, size);
+    container.innerHTML = stageShell(j, size, arrived);
   }
   if(!j) return;
 
@@ -705,13 +714,13 @@ function renderStage(container, j, size){
   const ptsEl = container.querySelector('.stage-points');
   if(ptsEl) ptsEl.textContent = pts + 'p';
 
-  if(j.video_url){
+  if(!arrived && j.video_url){
     const fraction = j.revealed>0 ? Math.min(0.98, j.revealed/n) : 0.02;
     if(container.dataset.lastFraction !== String(fraction)){
       container.dataset.lastFraction = String(fraction);
       seekJourneyVideo(container, fraction);
     }
-  } else {
+  } else if(!j.video_url && !(arrived && j.arrival_media_url)){
     const photoWrap = container.querySelector('.stage-photo');
     const wantImage = (c && c.image) || '';
     if(photoWrap && container.dataset.lastImg !== wantImage){
@@ -961,6 +970,7 @@ function clearForm(){
   document.getElementById('jAnswer').value = '';
   document.getElementById('jSeconds').value = 25;
   document.getElementById('jVideo').value = '';
+  document.getElementById('jArrival').value = '';
   renderClueEditor([
     {text:'',image:null,points:10},{text:'',image:null,points:8},{text:'',image:null,points:6},
     {text:'',image:null,points:4},{text:'',image:null,points:2},{text:'',image:null,points:1}
@@ -973,6 +983,7 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   const answer = document.getElementById('jAnswer').value.trim();
   const seconds_per_clue = parseInt(document.getElementById('jSeconds').value,10) || 25;
   const video_url = document.getElementById('jVideo').value.trim() || null;
+  const arrival_media_url = document.getElementById('jArrival').value.trim() || null;
   const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
     const text = row.querySelector('textarea').value.trim();
     const image = row.querySelector('.img-url').value.trim();
@@ -982,9 +993,9 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
   if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
   if(editingId){
-    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, revealed:0, is_done:false }).eq('id', editingId);
+    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, revealed:0, is_done:false }).eq('id', editingId);
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
   }
   clearForm();
 });
@@ -1013,6 +1024,7 @@ function loadJourneyIntoForm(id){
   document.getElementById('jAnswer').value = j.answer;
   document.getElementById('jSeconds').value = j.seconds_per_clue || 25;
   document.getElementById('jVideo').value = j.video_url || '';
+  document.getElementById('jArrival').value = j.arrival_media_url || '';
   renderClueEditor(j.clues);
   window.scrollTo({top:0, behavior:'smooth'});
 }
