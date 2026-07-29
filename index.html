@@ -24,64 +24,89 @@
     color:var(--chalk); font-family:'Inter',sans-serif; min-height:100vh; padding:20px 14px 60px;
   }
   .wrap{max-width:1120px; margin:0 auto;}
+  .hidden{display:none !important;}
   header{text-align:center; margin-bottom:16px;}
   .eyebrow{font-family:'Space Mono',monospace; letter-spacing:.35em; font-size:10.5px; color:var(--gold-bright); text-transform:uppercase; margin-bottom:6px;}
   h1{font-family:'Anton',sans-serif; font-weight:400; font-size:clamp(30px,6.5vw,56px); letter-spacing:.02em; margin:0; line-height:.95; text-shadow:0 3px 0 rgba(0,0,0,.25);}
   h1 span{color:var(--gold-bright);}
   .sub{font-size:13.5px; color:var(--muted); margin-top:8px; font-weight:500;}
+  .field-divider{height:9px; margin:16px auto 0; max-width:560px; background:repeating-linear-gradient(90deg, var(--line-white) 0 22px, transparent 22px 40px); opacity:.3; border-radius:2px;}
 
-  /* ===== TRAIN WINDOW HERO ===== */
-  .window{
-    position:relative; height:180px; margin:20px auto 6px; max-width:900px;
-    border-radius:26px; overflow:hidden;
-    border:12px solid var(--wood);
-    box-shadow:0 0 0 3px var(--wood-dark), 0 14px 30px -10px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.35);
-    background:#0a1f14;
+  /* ===== MODE SELECT ===== */
+  .mode-select{min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; text-align:center;}
+  .mode-cards{display:flex; gap:16px; flex-wrap:wrap; justify-content:center; max-width:800px;}
+  .mode-card{
+    background:var(--charcoal); border:1px solid rgba(212,175,55,.3); border-radius:18px;
+    padding:28px 26px; width:220px; cursor:pointer; transition:transform .12s, border-color .12s;
   }
-  .window .rivet{position:absolute; width:7px; height:7px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #d9c489, #7a6535); z-index:5;}
-  .window .r1{top:8px; left:8px;} .window .r2{top:8px; right:8px;} .window .r3{bottom:8px; left:8px;} .window .r4{bottom:8px; right:8px;}
+  .mode-card:hover{border-color:var(--gold-bright); transform:translateY(-3px);}
+  .mode-card .icon{font-size:38px; margin-bottom:10px;}
+  .mode-card h3{font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:19px; margin:0 0 6px;}
+  .mode-card p{color:var(--muted); font-size:12.5px; margin:0; line-height:1.5;}
+
+  /* ===== STAGE (big image + text) ===== */
+  .stage{
+    position:relative; border-radius:22px; overflow:hidden;
+    border:10px solid var(--wood);
+    box-shadow:0 0 0 3px var(--wood-dark), 0 16px 34px -10px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.35);
+    background:#0a1f14; margin:0 auto;
+  }
+  .stage.stage-lg{height:min(56vh,460px); max-width:980px;}
+  .stage.stage-md{height:220px; max-width:900px;}
   .sky{position:absolute; inset:0; background:linear-gradient(180deg, #16324f 0%, #2c5a4f 45%, #1c4a30 70%, #123521 100%);}
   .layer{position:absolute; left:0; right:-10px; height:100%; background-repeat:repeat-x;}
-  .layer-far{
-    bottom:0; height:60%;
-    background-image:repeating-linear-gradient(90deg, transparent 0 84px, rgba(6,14,10,.55) 84px 92px, transparent 92px 220px);
-    animation:scrollFar 42s linear infinite;
-  }
-  .layer-mid{
-    bottom:0; height:38%;
-    background-image:repeating-linear-gradient(90deg, rgba(9,28,18,.7) 0 46px, transparent 46px 140px);
-    clip-path:polygon(0 100%, 0 40%, 5% 20%, 10% 55%, 16% 15%, 22% 60%, 30% 10%, 38% 50%, 46% 25%, 54% 65%, 62% 20%, 70% 55%, 78% 10%, 86% 45%, 94% 15%, 100% 40%, 100% 100%);
-    animation:scrollMid 19s linear infinite;
-  }
-  .layer-near{
-    bottom:0; height:16%;
-    background-image:repeating-linear-gradient(90deg, rgba(4,10,7,.9) 0 5px, transparent 5px 90px);
-    animation:scrollNear 6.5s linear infinite;
-  }
+  .layer-far{ bottom:0; height:60%; background-image:repeating-linear-gradient(90deg, transparent 0 84px, rgba(6,14,10,.55) 84px 92px, transparent 92px 220px); animation:scrollFar 42s linear infinite; }
+  .layer-mid{ bottom:0; height:38%; background-image:repeating-linear-gradient(90deg, rgba(9,28,18,.7) 0 46px, transparent 46px 140px); clip-path:polygon(0 100%, 0 40%, 5% 20%, 10% 55%, 16% 15%, 22% 60%, 30% 10%, 38% 50%, 46% 25%, 54% 65%, 62% 20%, 70% 55%, 78% 10%, 86% 45%, 94% 15%, 100% 40%, 100% 100%); animation:scrollMid 19s linear infinite; }
+  .layer-near{ bottom:0; height:16%; background-image:repeating-linear-gradient(90deg, rgba(4,10,7,.9) 0 5px, transparent 5px 90px); animation:scrollNear 6.5s linear infinite; }
   @keyframes scrollFar{ from{background-position-x:0;} to{background-position-x:-220px;} }
   @keyframes scrollMid{ from{transform:translateX(0);} to{transform:translateX(-140px);} }
   @keyframes scrollNear{ from{background-position-x:0;} to{background-position-x:-90px;} }
-  .glass{position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 18%, transparent 82%, rgba(255,255,255,.06) 100%); pointer-events:none; z-index:6;}
-  .window-caption{position:absolute; bottom:8px; left:14px; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:rgba(244,246,242,.85); text-transform:uppercase; z-index:7; text-shadow:0 1px 3px rgba(0,0,0,.8);}
-  .window-photo{position:absolute; inset:0; opacity:0; transition:opacity .5s ease; z-index:3;}
-  .window-photo.show{opacity:1;}
-  .window-photo img{width:100%; height:100%; object-fit:cover; animation:kenburns 9s ease-in-out infinite alternate;}
+  .stage-photo{position:absolute; inset:0; opacity:0; transition:opacity .5s ease; z-index:3;}
+  .stage-photo.show{opacity:1;}
+  .stage-photo img{width:100%; height:100%; object-fit:cover; animation:kenburns 9s ease-in-out infinite alternate;}
   @keyframes kenburns{ from{transform:scale(1) translate(0,0);} to{transform:scale(1.12) translate(-1.5%, 1%);} }
-  @media (prefers-reduced-motion: reduce){ .layer-far,.layer-mid,.layer-near{animation:none;} .window-photo img{animation:none;} }
-
-  .field-divider{height:9px; margin:16px auto 0; max-width:560px; background:repeating-linear-gradient(90deg, var(--line-white) 0 22px, transparent 22px 40px); opacity:.3; border-radius:2px;}
+  .glass{position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 18%, transparent 82%, rgba(255,255,255,.06) 100%); pointer-events:none; z-index:6;}
+  .rivet{position:absolute; width:7px; height:7px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #d9c489, #7a6535); z-index:7;}
+  .r1{top:8px; left:8px;} .r2{top:8px; right:8px;} .r3{bottom:8px; left:8px;} .r4{bottom:8px; right:8px;}
+  .stage-points{
+    position:absolute; top:14px; right:14px; z-index:8; background:rgba(10,20,14,.75); border:2px solid var(--gold-bright);
+    border-radius:50%; width:64px; height:64px; display:flex; align-items:center; justify-content:center;
+    font-family:'Anton',sans-serif; font-size:26px; color:var(--gold-bright);
+  }
+  .stage-text{
+    position:absolute; left:0; right:0; bottom:0; z-index:8; padding:22px 22px 18px;
+    background:linear-gradient(0deg, rgba(5,10,7,.92) 10%, rgba(5,10,7,.55) 60%, transparent 100%);
+  }
+  .stage-text .clue-num{font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.1em; color:var(--gold-bright); text-transform:uppercase; margin-bottom:6px; display:block;}
+  .stage-text .clue-text{font-family:'Anton',sans-serif; font-weight:400; font-size:clamp(19px,3.2vw,32px); line-height:1.15; color:var(--chalk); text-shadow:0 2px 6px rgba(0,0,0,.6);}
+  .stage-empty{position:absolute; inset:0; z-index:8; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; text-align:center; padding:20px;}
+  .stage-empty .title{font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:22px;}
+  .stage-empty .desc{color:var(--muted); font-size:13px; max-width:320px;}
+  .stage-buzz-banner{
+    position:absolute; inset:0; z-index:9; display:flex; align-items:center; justify-content:center;
+    background:rgba(168,41,31,.82); backdrop-filter:blur(1px);
+  }
+  .stage-buzz-banner .txt{font-family:'Anton',sans-serif; font-size:clamp(22px,4vw,40px); color:#fff; text-align:center; padding:0 20px; animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+  .route-strip{position:absolute; left:14px; right:14px; bottom:0; height:5px; z-index:8; display:flex; gap:3px;}
+  .route-strip .dot{flex:1; background:rgba(244,246,242,.2); border-radius:2px;}
+  .route-strip .dot.on{background:var(--gold-bright);}
+  @media (prefers-reduced-motion: reduce){ .layer-far,.layer-mid,.layer-near,.stage-photo img,.stage-buzz-banner .txt{animation:none;} }
 
   /* AUTH BAR */
-  .authbar{display:flex; justify-content:center; align-items:center; gap:10px; margin:16px 0 4px; font-size:12.5px; color:var(--muted);}
+  .authbar{display:flex; justify-content:center; align-items:center; gap:10px; margin:16px 0 4px; font-size:12.5px; color:var(--muted); flex-wrap:wrap;}
   .authbar .pill{background:var(--charcoal); border:1px solid rgba(212,175,55,.3); border-radius:20px; padding:6px 14px; display:flex; align-items:center; gap:8px;}
   .authbar .dot{width:7px; height:7px; border-radius:50%; background:#5a6b5f;}
   .authbar .dot.on{background:var(--green-ok); box-shadow:0 0 6px var(--green-ok);}
   .authbar button{background:transparent; border:none; color:var(--gold-bright); font-weight:700; cursor:pointer; font-size:12.5px; font-family:'Inter',sans-serif;}
+  .mode-switch{background:transparent; border:1px solid rgba(244,246,242,.2); color:var(--muted); border-radius:20px; padding:5px 12px; font-size:12px; cursor:pointer; font-family:'Inter',sans-serif;}
+  .mode-switch:hover{border-color:var(--gold-bright); color:var(--gold-bright);}
 
   /* SCOREBOARD */
   .scoreboard{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:18px 0 18px;}
   .score-card{background:var(--charcoal); border:1px solid rgba(212,175,55,.35); border-radius:10px; padding:9px 12px; min-width:120px; text-align:center;}
   .score-card.lead{border-color:var(--gold-bright); box-shadow:0 0 0 1px var(--gold-bright), 0 0 20px -6px var(--gold-bright);}
+  .score-card.me{border-color:#6fd39a;}
   .score-name{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;}
   .score-val{font-family:'Anton',sans-serif; font-size:26px; color:var(--gold-bright); margin-bottom:4px;}
   .score-adj{display:flex; gap:4px; justify-content:center;}
@@ -134,45 +159,30 @@
   .jl-row .jl-info div{color:var(--muted); font-size:12px; margin-top:2px;}
   .jl-actions{display:flex; gap:8px;}
 
-  .clue-editor-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:8px;}
+  .clue-editor-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; background:rgba(0,0,0,.15); padding:10px; border-radius:10px;}
   .clue-editor-row .cnum{font-family:'Space Mono',monospace; color:var(--gold-bright); font-size:12px; width:20px; padding-top:10px;}
   .clue-editor-row button{background:transparent; border:1px solid rgba(168,41,31,.5); color:#e28b83; width:32px; height:32px; border-radius:7px; cursor:pointer; flex-shrink:0;}
   .clue-editor-row button:hover{background:rgba(168,41,31,.2);}
+  .clue-editor-row .img-field{flex:1; display:flex; flex-direction:column; gap:6px;}
+  .clue-editor-row .img-field input{font-size:12.5px;}
+  .clue-editor-row .img-preview{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid rgba(212,175,55,.3); flex-shrink:0; display:none; margin-top:10px;}
+  .clue-editor-row .img-preview.show{display:block;}
+  .clue-editor-row .pts-field{width:70px; flex-shrink:0;}
+  .clue-editor-row .pts-field label{font-size:9.5px; margin-bottom:3px;}
+  .riddle-hint{font-size:11.5px; color:var(--gold-bright); margin:-4px 0 10px 28px; font-style:italic;}
   .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;}
-  .scale-preview{font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); background:var(--charcoal); border-radius:8px; padding:10px 12px; margin-bottom:16px;}
-  .scale-preview b{color:var(--gold-bright);}
 
   .team-rows{display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
   .team-row{display:flex; align-items:center; gap:10px;}
   .team-row .num{font-family:'Space Mono',monospace; color:var(--gold-bright); font-size:13px; width:22px;}
   .team-row input{flex:1;}
+  .team-row .code{font-family:'Space Mono',monospace; color:var(--gold-bright); background:var(--charcoal); border:1px solid rgba(212,175,55,.3); border-radius:6px; padding:8px 10px; font-size:13px; letter-spacing:.1em;}
   .team-row button{background:transparent; border:1px solid rgba(168,41,31,.5); color:#e28b83; width:34px; height:34px; border-radius:8px; cursor:pointer; font-size:16px; flex-shrink:0;}
   .team-row button:hover{background:rgba(168,41,31,.2);}
 
   .qhead{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;}
   .qtag{font-family:'Space Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase;}
-  .qpoints{font-family:'Anton',sans-serif; font-size:38px; color:var(--gold-bright); line-height:1;}
-
-  .route-wrap{margin:6px 0 20px;}
-  .route{position:relative; height:56px; border:2px solid rgba(244,246,242,.2); border-radius:8px; background:rgba(17,21,17,.4);}
-  .route-stops{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; height:100%;}
-  .stop{display:flex; align-items:center; justify-content:center; border-right:1px solid rgba(244,246,242,.12); font-family:'Space Mono',monospace; font-size:11px; color:rgba(244,246,242,.3); position:relative;}
-  .stop:last-child{border-right:none;}
-  .stop.active{color:var(--gold-bright); background:rgba(212,175,55,.12);}
-  .stop.passed{color:rgba(244,246,242,.15);}
-  .train-icon{position:absolute; top:-18px; width:26px; text-align:center; font-size:19px; transform:translateX(-50%); transition:left .35s ease;}
-
-  .clue-log{display:flex; flex-direction:column; gap:10px; margin-bottom:18px;}
-  .clue-item{background:rgba(17,21,17,.6); border:1px solid rgba(212,175,55,.25); border-radius:10px; padding:14px 16px; font-size:16.5px; line-height:1.5; display:flex; gap:12px; align-items:flex-start;}
-  .clue-item .cn{font-family:'Space Mono',monospace; font-size:10.5px; color:var(--gold-bright); border:1px solid var(--gold-bright); border-radius:20px; padding:1px 8px; margin-right:8px;}
-  .clue-item .thumb{width:52px; height:52px; border-radius:8px; object-fit:cover; flex-shrink:0; border:1px solid rgba(212,175,55,.4);}
-  .clue-log .empty-hint{color:var(--muted); font-style:italic; font-size:14px;}
-  .clue-editor-row .img-field{flex:1; display:flex; flex-direction:column; gap:6px;}
-  .clue-editor-row .img-field input{font-size:12.5px;}
-  .clue-editor-row .img-preview{width:36px; height:36px; border-radius:6px; object-fit:cover; border:1px solid rgba(212,175,55,.3); flex-shrink:0; display:none;}
-  .clue-editor-row .img-preview.show{display:block;}
-
-  .qactions{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;}
+  .qactions{display:flex; gap:10px; flex-wrap:wrap; margin:16px 0 20px;}
 
   .answer-reveal{background:linear-gradient(180deg, rgba(212,175,55,.18), rgba(212,175,55,.05)); border:1px solid var(--gold-bright); border-radius:12px; padding:16px 20px; margin-bottom:20px;}
   .answer-reveal .label{font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:var(--gold-bright); text-transform:uppercase; margin-bottom:5px;}
@@ -181,6 +191,7 @@
   .team-play-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; margin-bottom:20px;}
   .team-play-card{background:var(--charcoal); border:1px solid rgba(244,246,242,.18); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;}
   .team-play-card.out{opacity:.35;}
+  .team-play-card.buzzed{border-color:var(--gold-bright); box-shadow:0 0 0 1px var(--gold-bright);}
   .team-play-card .tp-name{font-weight:700; font-size:14.5px; display:flex; justify-content:space-between; align-items:center;}
   .team-play-card .tp-name .strike{text-decoration:line-through;}
   .tp-btns{display:flex; gap:6px;}
@@ -191,10 +202,8 @@
 
   .backbar{margin-top:6px;}
   footer{text-align:center; color:var(--muted); font-size:11.5px; margin-top:36px; font-family:'Space Mono',monospace; letter-spacing:.05em;}
-  .hidden{display:none !important;}
   .row-actions{display:flex; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
 
-  /* LOGIN MODAL */
   .modal-backdrop{position:fixed; inset:0; background:rgba(4,8,5,.72); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px;}
   .modal{background:var(--charcoal); border:1px solid rgba(212,175,55,.4); border-radius:16px; padding:26px; max-width:340px; width:100%;}
   .modal h3{font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:20px; margin:0 0 4px;}
@@ -203,48 +212,120 @@
   .modal-err{color:#e28b83; font-size:12.5px; margin-bottom:10px; min-height:14px;}
   .modal-actions{display:flex; gap:8px; margin-top:6px;}
 
-  @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .window{height:130px;} }
+  /* PLAYER MODE */
+  .player-join{max-width:360px; margin:60px auto; text-align:center;}
+  .player-code-input{font-family:'Space Mono',monospace; font-size:28px; letter-spacing:.3em; text-align:center; text-transform:uppercase;}
+  .buzzer-wrap{display:flex; flex-direction:column; align-items:center; gap:20px; margin:30px auto;}
+  .buzzer-btn{
+    width:220px; height:220px; border-radius:50%; border:none; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #d8443a, #7c1a12);
+    box-shadow:0 10px 0 #4d0f0a, 0 16px 30px rgba(0,0,0,.5);
+    font-family:'Anton',sans-serif; font-size:26px; color:#fff; letter-spacing:.02em;
+    transition:transform .06s ease, box-shadow .06s ease;
+  }
+  .buzzer-btn:active:not(:disabled){ transform:translateY(8px); box-shadow:0 2px 0 #4d0f0a, 0 6px 14px rgba(0,0,0,.5); }
+  .buzzer-btn:disabled{ background:radial-gradient(circle at 35% 30%, #555, #2c2c2c); box-shadow:0 10px 0 #1a1a1a, 0 16px 30px rgba(0,0,0,.5); cursor:not-allowed; color:#999;}
+  .player-status{font-family:'Space Mono',monospace; font-size:13px; color:var(--muted); text-align:center; min-height:18px;}
+  .bonus-box{background:var(--charcoal); border:1px solid rgba(212,175,55,.3); border-radius:14px; padding:20px; max-width:420px; margin:20px auto;}
+  .bonus-box h3{font-family:'Anton',sans-serif; color:var(--gold-bright); margin:0 0 10px;}
+
+  @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
 </head>
 <body>
-<div class="wrap">
 
+<!-- ===================== MODE SELECT ===================== -->
+<div id="screenSelect" class="mode-select">
+  <div>
+    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <h1>PÅ <span>SPÅRET</span></h1>
+    <div class="sub">Draft Express — välj läge</div>
+  </div>
+  <div class="mode-cards">
+    <div class="mode-card" data-mode="visning">
+      <div class="icon">🎬</div>
+      <h3>Visningsläge</h3>
+      <p>Storskärmen alla tittar på. Läsläge, uppdateras live, ingen inloggning.</p>
+    </div>
+    <div class="mode-card" data-mode="spelare">
+      <div class="icon">🕹️</div>
+      <h3>Spelarläge</h3>
+      <p>För varje lag. Gå med med er kod, tryck på knappen för att gissa.</p>
+    </div>
+    <div class="mode-card" data-mode="admin">
+      <div class="icon">🔐</div>
+      <h3>Adminläge</h3>
+      <p>Styr resorna, ljudet, poängen och mellanfrågorna.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== VISNINGSLÄGE ===================== -->
+<div id="screenVisning" class="hidden wrap">
   <header>
     <div class="eyebrow">Fantasy Football Draft · Special</div>
     <h1>PÅ <span>SPÅRET</span></h1>
-    <div class="sub">Draft Express — följ ledtrådarna genom NFL-landet och gissa rätt stad</div>
+    <div class="sub" id="visningSub">Draft Express</div>
+  </header>
+  <div id="visningStage"></div>
+  <div id="scoreboardVisning" class="scoreboard"></div>
+  <div style="text-align:center; margin-top:20px;"><button class="mode-switch" data-back="1">← Byt läge</button></div>
+</div>
+
+<!-- ===================== SPELARLÄGE ===================== -->
+<div id="screenSpelare" class="hidden wrap">
+  <header>
+    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <h1>PÅ <span>SPÅRET</span></h1>
   </header>
 
-  <div class="window" id="trainWindow">
-    <div class="sky"></div>
-    <div class="layer layer-far"></div>
-    <div class="layer layer-mid"></div>
-    <div class="layer layer-near"></div>
-    <div class="window-photo" id="windowPhoto"></div>
-    <div class="glass"></div>
-    <div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
-    <div class="window-caption" id="windowCaption">Nu passerar vi NFL-land</div>
+  <div id="joinBox" class="player-join">
+    <p class="help" style="color:var(--muted); margin-bottom:14px;">Ange er lagkod (fråga admin om ni inte har den).</p>
+    <input type="text" id="joinCode" class="player-code-input" maxlength="4" placeholder="KOD">
+    <div class="modal-err" id="joinErr" style="text-align:center; margin-top:8px;"></div>
+    <button class="btn btn-gold" id="joinBtn" style="width:100%; margin-top:14px; padding:14px;">Gå med</button>
   </div>
 
-  <div class="field-divider"></div>
+  <div id="playerDash" class="hidden">
+    <div id="scoreboardPlayer" class="scoreboard"></div>
+    <div id="playerJourneyInfo" class="qtag" style="text-align:center; margin-bottom:10px;"></div>
+    <div class="buzzer-wrap">
+      <button class="buzzer-btn" id="buzzBtn" disabled>GISSA!</button>
+      <div class="player-status" id="playerStatus"></div>
+    </div>
+    <div id="bonusBox" class="bonus-box hidden">
+      <h3 id="bonusPrompt"></h3>
+      <textarea id="bonusAnswerInput" rows="2" placeholder="Skriv ert svar..."></textarea>
+      <button class="btn btn-gold" id="bonusSubmitBtn" style="width:100%; margin-top:10px;">Skicka svar</button>
+      <div class="player-status" id="bonusStatus"></div>
+    </div>
+    <div style="text-align:center; margin-top:24px;"><button class="mode-switch" data-back="1">← Byt läge / lag</button></div>
+  </div>
+</div>
+
+<!-- ===================== ADMINLÄGE ===================== -->
+<div id="screenAdmin" class="hidden wrap">
+  <header>
+    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <h1>PÅ <span>SPÅRET</span></h1>
+    <div class="sub">Draft Express — adminpanel</div>
+  </header>
 
   <div class="authbar">
-    <div class="pill">
-      <span class="dot" id="authDot"></span>
-      <span id="authLabel">Ej inloggad</span>
-    </div>
+    <div class="pill"><span class="dot" id="authDot"></span><span id="authLabel">Ej inloggad</span></div>
     <button id="authBtn" type="button">Logga in som admin</button>
+    <button class="mode-switch" data-back="1">← Byt läge</button>
   </div>
 
   <div id="scoreboard" class="scoreboard"></div>
 
   <nav class="nav">
     <button data-tab="spela" class="active">🚂 Spela</button>
-    <button data-tab="resor">✏️ Resor & frågor</button>
+    <button data-tab="resor">✏️ Resor</button>
+    <button data-tab="mellan">❓ Mellanfrågor</button>
     <button data-tab="lag">🏈 Lag & poäng</button>
   </nav>
 
-  <!-- SPELA TAB -->
   <section id="tab-spela">
     <div id="library" class="panel">
       <h2>Välj en resa</h2>
@@ -253,15 +334,7 @@
     </div>
 
     <div id="playView" class="panel hidden">
-      <div class="qhead">
-        <div><div class="qtag" id="playTag">Resa</div></div>
-        <div class="qpoints" id="playPoints">–</div>
-      </div>
-
-      <div class="route-wrap"><div class="route" id="route"></div></div>
-
-      <div class="qtag" style="margin-bottom:8px;">Ledtrådar hittills (läs upp för lagen)</div>
-      <div class="clue-log" id="clueLog"><div class="empty-hint">Klicka "Nästa ledtråd" för att avslöja den första.</div></div>
+      <div id="adminStage"></div>
 
       <div class="qactions" id="adminPlayActions">
         <button class="btn btn-gold" id="nextClueBtn">Nästa ledtråd →</button>
@@ -275,7 +348,7 @@
       </div>
 
       <div id="teamPlaySection">
-        <div class="qtag" style="margin-bottom:10px;">Lag — markera rätt/fel gissning</div>
+        <div class="qtag" style="margin-bottom:10px;">Lag — bocka av vem som gissade rätt/fel (eller vänta på att någon "gissar" i spelarläget)</div>
         <div class="team-play-grid" id="teamPlayGrid"></div>
       </div>
 
@@ -283,7 +356,6 @@
     </div>
   </section>
 
-  <!-- RESOR TAB -->
   <section id="tab-resor" class="hidden">
     <div id="resorLocked" class="panel hidden">
       <h2>Resor & frågor</h2>
@@ -293,7 +365,7 @@
     <div id="resorAdmin" class="hidden">
       <div class="panel">
         <h2 id="editorHeading">Ny resa</h2>
-        <p class="help">Skriv ledtrådarna i den ordning de ska avslöjas — börja svårt/luddigt, sluta självklart. Sista ledtrådarna ger färre poäng, precis som i På Spåret.</p>
+        <p class="help">Sex ledtrådar, 10 → 8 → 6 → 4 → 2 → 1 poäng. Första ledtråden (10p) ska vara en gåta/liknelse — inte ett rakt sakfaktum — precis som i På Spåret. Sista är den självklara upplösningen.</p>
 
         <label>Internt namn (bara admins ser detta)</label>
         <input type="text" id="jTitle" placeholder="T.ex. Resa till AFC West" style="margin-bottom:14px;">
@@ -304,12 +376,6 @@
 
         <label>Rätt svar (stad/lag/spelare)</label>
         <input type="text" id="jAnswer" placeholder="T.ex. Kansas City" style="margin-bottom:14px;">
-
-        <div class="form-grid">
-          <div><label>Poäng vid första ledtråden</label><input type="number" id="jStart" value="20" min="1"></div>
-          <div><label>Poäng som dras av per ledtråd</label><input type="number" id="jStep" value="4" min="0"></div>
-        </div>
-        <div class="scale-preview" id="scalePreview"></div>
 
         <div class="row-actions">
           <button class="btn btn-gold" id="saveJourneyBtn" type="button">Spara resa</button>
@@ -322,21 +388,57 @@
         <p class="help">Klicka "Redigera" för att ändra en resa, eller ta bort den.</p>
         <div id="journeyListAdmin" class="journey-list-admin"></div>
       </div>
+
+      <div class="panel">
+        <h2>Buzzer-ljud</h2>
+        <p class="help">Länk till en ljudfil (mp3/wav) som spelas när ett lag trycker på knappen i spelarläget. Lämna tomt för ett inbyggt standardljud.</p>
+        <input type="text" id="buzzerSoundUrl" placeholder="https://... (valfritt)">
+        <div class="row-actions" style="margin-top:12px;">
+          <button class="btn btn-ghost btn-sm" id="saveSoundBtn" type="button">Spara ljud</button>
+          <button class="btn btn-ghost btn-sm" id="testSoundBtn" type="button">🔊 Testa ljud</button>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- LAG TAB -->
+  <section id="tab-mellan" class="hidden">
+    <div id="mellanLocked" class="panel hidden">
+      <h2>Mellanfrågor</h2>
+      <div class="locked-note">🔒 Logga in som admin för att hantera mellanfrågor.</div>
+    </div>
+    <div id="mellanAdmin" class="hidden">
+      <div class="panel">
+        <h2>Ny mellanfråga</h2>
+        <p class="help">Frågor att köra mellan resorna. Spelarna svarar i text i spelarläget, ni bedömer och delar ut poäng manuellt.</p>
+        <label>Fråga</label>
+        <textarea id="bqPrompt" rows="2" placeholder="T.ex. Vilken spelare hade flest touchdowns i NFL 2025?" style="margin-bottom:12px;"></textarea>
+        <div class="form-grid">
+          <div><label>Facit (valfritt, bara för er)</label><input type="text" id="bqAnswer"></div>
+          <div><label>Poäng</label><input type="number" id="bqPoints" value="5" min="1"></div>
+        </div>
+        <button class="btn btn-gold" id="bqSaveBtn" type="button">Spara fråga</button>
+      </div>
+      <div class="panel">
+        <h2>Alla mellanfrågor</h2>
+        <div id="bqList" class="journey-list-admin"></div>
+      </div>
+      <div class="panel hidden" id="bqAnswersPanel">
+        <h2>Svar på aktiv fråga</h2>
+        <div id="bqAnswersList"></div>
+      </div>
+    </div>
+  </section>
+
   <section id="tab-lag" class="hidden">
     <div class="panel">
       <h2>Lag</h2>
-      <p class="help" id="teamsHelp">Lägg till, döp om eller ta bort lag (5–8 funkar bäst).</p>
+      <p class="help" id="teamsHelp">Lägg till, döp om eller ta bort lag. Koden är vad laget skriver in i spelarläget.</p>
       <div id="teamRows" class="team-rows"></div>
       <button class="btn btn-ghost hidden" id="addTeamBtn" type="button">+ Lägg till lag</button>
     </div>
-
     <div class="panel hidden" id="manualScorePanel">
       <h2>Manuell poängjustering</h2>
-      <p class="help">För rättningar, bonuspoäng eller avdrag utanför en pågående resa.</p>
+      <p class="help">För rättningar, bonuspoäng eller avdrag.</p>
       <div id="manualScoreRows"></div>
     </div>
   </section>
@@ -344,7 +446,6 @@
   <footer>PÅ SPÅRET — DRAFT EXPRESS · Kopplad till Supabase för kvällens draft</footer>
 </div>
 
-<!-- LOGIN MODAL -->
 <div id="loginModal" class="modal-backdrop hidden">
   <div class="modal">
     <h3>Admin-inloggning</h3>
@@ -363,14 +464,9 @@
 const SUPABASE_URL = 'https://fajtxhxwvnuhfkytdcqi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhanR4aHh3dm51aGZreXRkY3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NTk3NjMsImV4cCI6MjA5OTMzNTc2M30.b7rMbVl_56fbRSESVO8HT5XuGoeshtY4jozfZ9T8Aqg';
 
-// In-memory-only storage adapter (artifacts must never touch localStorage/sessionStorage)
 const memoryStorage = (() => {
   let store = {};
-  return {
-    getItem: k => (k in store ? store[k] : null),
-    setItem: (k,v) => { store[k]=v; },
-    removeItem: k => { delete store[k]; }
-  };
+  return { getItem:k=>(k in store?store[k]:null), setItem:(k,v)=>{store[k]=v;}, removeItem:k=>{delete store[k];} };
 })();
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -380,24 +476,40 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 /* ---------------- STATE ---------------- */
 let teams = [];
 let journeys = [];
-let gameState = { current_journey_id: null };
+let gameState = { current_journey_id:null, buzzed_team_id:null, resolved:true, out_teams:[], buzzer_sound_url:null, active_bonus_question_id:null };
+let bonusQuestions = [];
+let bonusAnswers = [];
 let isAdmin = false;
-let currentOut = new Set();
 let editingId = null;
+let lastBuzzedAt = null;
+
+let myTeam = null; // player mode: the team object this device represents
+
+const params = new URLSearchParams(location.search);
+let currentMode = params.get('mode') || 'select';
+let pendingTeamCode = params.get('team') || null;
 
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function pointsForClue(j, idx){ return Math.max(1, j.start_points - j.step*idx); }
 
-/* ---------------- AUTH ---------------- */
-function openLogin(){
-  document.getElementById('loginErr').textContent = '';
-  document.getElementById('loginModal').classList.remove('hidden');
+/* ---------------- MODE ROUTING ---------------- */
+function setMode(mode, extra){
+  currentMode = mode;
+  const url = new URL(location.href);
+  url.searchParams.set('mode', mode);
+  if(extra && extra.team) url.searchParams.set('team', extra.team); else url.searchParams.delete('team');
+  history.replaceState({}, '', url);
+  ['Select','Visning','Spelare','Admin'].forEach(s=>{
+    document.getElementById('screen'+s).classList.toggle('hidden', ('screen'+s) !== ('screen'+mode.charAt(0).toUpperCase()+mode.slice(1)));
+  });
+  renderAll();
 }
-function closeLogin(){ document.getElementById('loginModal').classList.add('hidden'); }
+document.querySelectorAll('.mode-card').forEach(c=> c.addEventListener('click', ()=> setMode(c.dataset.mode)));
+document.querySelectorAll('[data-back]').forEach(b=> b.addEventListener('click', ()=>{ myTeam=null; setMode('select'); }));
 
-document.getElementById('authBtn').addEventListener('click', ()=>{
-  if(isAdmin){ sb.auth.signOut(); } else { openLogin(); }
-});
+/* ---------------- AUTH (admin) ---------------- */
+function openLogin(){ document.getElementById('loginErr').textContent=''; document.getElementById('loginModal').classList.remove('hidden'); }
+function closeLogin(){ document.getElementById('loginModal').classList.add('hidden'); }
+document.getElementById('authBtn').addEventListener('click', ()=>{ if(isAdmin){ sb.auth.signOut(); } else { openLogin(); } });
 document.getElementById('loginCancel').addEventListener('click', closeLogin);
 document.getElementById('loginSubmit').addEventListener('click', async ()=>{
   const email = document.getElementById('loginEmail').value.trim();
@@ -408,137 +520,463 @@ document.getElementById('loginSubmit').addEventListener('click', async ()=>{
   if(error){ errEl.textContent = 'Fel e-post eller lösenord.'; return; }
   closeLogin();
 });
-
-sb.auth.onAuthStateChange((_event, session)=>{
-  isAdmin = !!session;
-  updateAuthUI();
-  renderAll();
-});
-
+sb.auth.onAuthStateChange((_e, session)=>{ isAdmin = !!session; updateAuthUI(); renderAll(); });
 function updateAuthUI(){
   document.getElementById('authDot').classList.toggle('on', isAdmin);
   document.getElementById('authLabel').textContent = isAdmin ? 'Inloggad som admin' : 'Ej inloggad';
   document.getElementById('authBtn').textContent = isAdmin ? 'Logga ut' : 'Logga in som admin';
 }
+function requireAdmin(){ if(!isAdmin){ openLogin(); return false; } return true; }
 
-function requireAdmin(){
-  if(!isAdmin){ openLogin(); return false; }
-  return true;
-}
-
-/* ---------------- NAV ---------------- */
+/* ---------------- NAV (admin tabs) ---------------- */
 document.querySelectorAll('.nav button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['spela','resor','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
+    ['spela','resor','mellan','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
     renderAll();
   });
 });
 
 /* ---------------- FETCH ---------------- */
-async function fetchTeams(){
-  const { data } = await sb.from('ps_teams').select('*').order('sort_order');
-  teams = data || [];
-}
-async function fetchJourneys(){
-  const { data } = await sb.from('ps_journeys').select('*').order('sort_order');
-  journeys = data || [];
-}
-async function fetchGameState(){
-  const { data } = await sb.from('ps_game_state').select('*').eq('id',1).single();
-  if(data) gameState = data;
+async function fetchTeams(){ const {data} = await sb.from('ps_teams').select('*').order('sort_order'); teams = data||[]; }
+async function fetchJourneys(){ const {data} = await sb.from('ps_journeys').select('*').order('sort_order'); journeys = data||[]; }
+async function fetchGameState(){ const {data} = await sb.from('ps_game_state').select('*').eq('id',1).single(); if(data) gameState = data; }
+async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').order('sort_order'); bonusQuestions = data||[]; }
+async function fetchBonusAnswers(){
+  if(!gameState.active_bonus_question_id){ bonusAnswers=[]; return; }
+  const {data} = await sb.from('ps_bonus_answers').select('*').eq('question_id', gameState.active_bonus_question_id);
+  bonusAnswers = data||[];
 }
 
 async function refetchAll(){
-  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState()]);
+  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState(), fetchBonusQuestions()]);
+  await fetchBonusAnswers();
+  checkBuzzSound();
   renderAll();
 }
 
-/* ---------------- REALTIME ---------------- */
+function checkBuzzSound(){
+  if(gameState.buzzed_at && gameState.buzzed_at !== lastBuzzedAt && gameState.resolved === false){
+    lastBuzzedAt = gameState.buzzed_at;
+    playBuzzerSound();
+  }
+  if(gameState.resolved === true) lastBuzzedAt = gameState.buzzed_at;
+}
+
+let audioCtx;
+function playBuzzerSound(){
+  if(gameState.buzzer_sound_url){
+    try{ new Audio(gameState.buzzer_sound_url).play().catch(()=>{}); return; }catch(e){}
+  }
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    o.type='sawtooth'; o.frequency.setValueAtTime(880, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime+0.4);
+    g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.5);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.5);
+  }catch(e){}
+}
+
 sb.channel('ps-live')
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_teams' }, refetchAll)
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_journeys' }, refetchAll)
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_game_state' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_bonus_questions' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_bonus_answers' }, refetchAll)
   .subscribe();
 
 /* ---------------- RENDER ROOT ---------------- */
 function renderAll(){
-  renderScoreboard();
-  renderLibrary();
-  renderPlayView();
-  renderResorTab();
-  renderTeamsTab();
+  if(currentMode==='admin'){
+    renderScoreboardInto('scoreboard', null);
+    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab();
+  } else if(currentMode==='visning'){
+    renderVisning();
+  } else if(currentMode==='spelare'){
+    renderSpelare();
+  }
 }
 
-/* ---------------- SCOREBOARD ---------------- */
-function renderScoreboard(){
-  const el = document.getElementById('scoreboard');
-  if(!teams.length){ el.innerHTML=""; return; }
+function pointsForClueIdx(j, idx){
+  const c = j.clues[idx];
+  return (typeof c==='object' && c && typeof c.points==='number') ? c.points : Math.max(1, 10-idx*2);
+}
+function clueOf(j, idx){
+  const c = j.clues[idx];
+  return (typeof c==='string') ? {text:c,image:null,points:pointsForClueIdx(j,idx)} : (c||{text:'',image:null,points:1});
+}
+
+/* ---------------- SCOREBOARD (shared) ---------------- */
+function renderScoreboardInto(elId, highlightTeamId){
+  const el = document.getElementById(elId);
+  if(!el || !teams.length){ if(el) el.innerHTML=""; return; }
   const max = Math.max(...teams.map(t=>t.score||0));
   el.innerHTML = teams.map(t=>{
     const isLead = (t.score||0)===max && max>0;
-    return `<div class="score-card ${isLead?'lead':''}">
+    const isMe = highlightTeamId && t.id===highlightTeamId;
+    return `<div class="score-card ${isLead?'lead':''} ${isMe?'me':''}">
       <div class="score-name">${escapeHtml(t.name)}</div>
       <div class="score-val">${t.score||0}</div>
-      ${isAdmin ? `<div class="score-adj">
-        <button data-id="${t.id}" data-d="-1">−1</button>
-        <button data-id="${t.id}" data-d="1">+1</button>
-      </div>` : ''}
+      ${(elId==='scoreboard' && isAdmin) ? `<div class="score-adj"><button data-id="${t.id}" data-d="-1">−1</button><button data-id="${t.id}" data-d="1">+1</button></div>` : ''}
     </div>`;
   }).join('');
-  el.querySelectorAll('.score-adj button').forEach(b=>{
-    b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10)));
-  });
+  el.querySelectorAll('.score-adj button').forEach(b=> b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10))));
 }
-
 async function adjustScore(teamId, delta){
   if(!requireAdmin()) return;
-  const t = teams.find(x=>x.id===teamId);
-  if(!t) return;
-  await sb.from('ps_teams').update({ score: (t.score||0)+delta }).eq('id', teamId);
+  const t = teams.find(x=>x.id===teamId); if(!t) return;
+  await sb.from('ps_teams').update({ score:(t.score||0)+delta }).eq('id', teamId);
 }
 
-/* ---------------- LAG TAB ---------------- */
+/* ============================================================
+   STAGE (shared big image+text component) — used by admin+visning
+   ============================================================ */
+function stageHTML(j, {big}){
+  const size = big ? 'stage-lg' : 'stage-md';
+  if(!j){
+    return `<div class="stage ${size}">
+      <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+      <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
+      <div class="stage-empty"><div class="title">🚂 Väntar på nästa resa</div><div class="desc">Admin startar snart en ny resa att gissa.</div></div>
+    </div>`;
+  }
+  const idx = Math.max(0, j.revealed-1);
+  const c = j.revealed>0 ? clueOf(j, idx) : null;
+  const pts = j.revealed>0 ? c.points : clueOf(j,0).points;
+  const n = j.clues.length;
+  let dots = '';
+  for(let i=0;i<n;i++) dots += `<div class="dot ${i<j.revealed?'on':''}"></div>`;
+
+  const buzzBanner = (gameState.resolved===false && gameState.current_journey_id===j.id)
+    ? `<div class="stage-buzz-banner"><div class="txt">🚨 ${escapeHtml((teams.find(t=>t.id===gameState.buzzed_team_id)||{}).name || 'Ett lag')} gissar!</div></div>` : '';
+
+  return `<div class="stage ${size}">
+    <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+    <div class="stage-photo ${c && c.image ? 'show':''}">${c && c.image ? `<img src="${escapeHtml(c.image)}">` : ''}</div>
+    <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
+    <div class="stage-points">${pts}p</div>
+    ${j.revealed>0 ? `<div class="stage-text"><span class="clue-num">Ledtråd ${idx+1} / ${n}</span><div class="clue-text">${escapeHtml(c.text)}</div></div>`
+                   : `<div class="stage-empty"><div class="title">${escapeHtml(j.title)}</div><div class="desc">Redo att avslöja första ledtråden.</div></div>`}
+    <div class="route-strip">${dots}</div>
+    ${buzzBanner}
+  </div>`;
+}
+
+/* ============================================================
+   VISNINGSLÄGE
+   ============================================================ */
+function renderVisning(){
+  renderScoreboardInto('scoreboardVisning', null);
+  const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
+
+  if(gameState.active_bonus_question_id){
+    const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+    document.getElementById('visningSub').textContent = 'Mellanfråga';
+    document.getElementById('visningStage').innerHTML = `<div class="stage stage-lg">
+      <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+      <div class="glass"></div>
+      <div class="stage-empty"><div class="title">❓ Mellanfråga</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div></div>
+    </div>`;
+    return;
+  }
+  document.getElementById('visningSub').textContent = j ? 'Vart är tåget på väg?' : 'Draft Express';
+  document.getElementById('visningStage').innerHTML = stageHTML(j, {big:true});
+  if(j && j.is_done && j.answer){
+    document.getElementById('visningStage').innerHTML += `<div class="answer-reveal" style="max-width:980px; margin:16px auto 0;"><div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div></div>`;
+  }
+}
+
+/* ============================================================
+   ADMIN: SPELA TAB
+   ============================================================ */
+function renderLibrary(){
+  const playingId = gameState.current_journey_id;
+  const showLibrary = !playingId;
+  document.getElementById('library').classList.toggle('hidden', !showLibrary);
+  document.getElementById('playView').classList.toggle('hidden', showLibrary);
+  document.getElementById('libraryHelp').textContent = 'Klicka på ett kort för att starta den resan.';
+
+  const el = document.getElementById('journeyGrid');
+  if(!journeys.length){ el.innerHTML = `<p class="help">Inga resor skapade än.</p>`; return; }
+  el.innerHTML = journeys.map(j=>`
+    <div class="journey-card ${j.is_done?'done':''}" data-open="${j.id}">
+      <div class="jc-top"><div class="jc-title">${escapeHtml(j.title)}</div><div class="jc-status">${j.is_done?'Spelad':'Redo'}</div></div>
+      <div class="jc-meta">${j.clues.length} ledtrådar · ${clueOf(j,0).points}p → 1p</div>
+    </div>`).join('');
+  el.querySelectorAll('[data-open]').forEach(c=> c.addEventListener('click', ()=> openJourney(c.dataset.open)));
+}
+async function openJourney(id){
+  if(!requireAdmin()) return;
+  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
+  await sb.from('ps_game_state').update({ current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[], active_bonus_question_id:null }).eq('id',1);
+}
+function currentJourney(){ return journeys.find(j=>j.id===gameState.current_journey_id) || null; }
+
+function renderPlayView(){
+  const j = currentJourney();
+  document.getElementById('adminStage').innerHTML = stageHTML(j, {big:true});
+  document.getElementById('adminPlayActions').classList.toggle('hidden', !j);
+  document.getElementById('teamPlaySection').classList.toggle('hidden', !j);
+  if(!j) return;
+
+  document.getElementById('nextClueBtn').disabled = j.revealed >= j.clues.length || gameState.resolved===false;
+  document.getElementById('nextClueBtn').textContent = j.revealed >= j.clues.length ? 'Sista ledtråden visad' : (gameState.resolved===false ? 'Lös gissningen först' : 'Nästa ledtråd →');
+
+  if(j.is_done && j.answer){
+    document.getElementById('answerBox').classList.remove('hidden');
+    document.getElementById('answerText').textContent = j.answer;
+  } else {
+    document.getElementById('answerBox').classList.add('hidden');
+  }
+  renderTeamPlayGrid(j);
+}
+
+document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const j = currentJourney();
+  if(!j || j.revealed >= j.clues.length || gameState.resolved===false) return;
+  await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
+});
+
+function renderTeamPlayGrid(j){
+  const el = document.getElementById('teamPlayGrid');
+  const out = new Set(gameState.out_teams||[]);
+  const buzzed = gameState.resolved===false ? gameState.buzzed_team_id : null;
+  el.innerHTML = teams.map(t=>`
+    <div class="team-play-card ${out.has(t.id)?'out':''} ${buzzed===t.id?'buzzed':''}">
+      <div class="tp-name"><span class="${out.has(t.id)?'strike':''}">${escapeHtml(t.name)}</span><span style="color:var(--gold-bright); font-family:'Anton',sans-serif;">${t.score||0}</span></div>
+      <div class="tp-btns">
+        <button class="tp-correct" data-id="${t.id}" ${j.is_done?'disabled':''}>✅ Rätt</button>
+        <button class="tp-wrong" data-id="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>❌ Fel</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('.tp-correct').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.id)));
+  el.querySelectorAll('.tp-wrong').forEach(b=> b.addEventListener('click', ()=> markWrong(b.dataset.id)));
+}
+
+async function awardCorrect(teamId){
+  if(!requireAdmin()) return;
+  const j = currentJourney(); const t = teams.find(x=>x.id===teamId);
+  if(!j || !t) return;
+  const idx = Math.max(0, j.revealed-1);
+  const pts = clueOf(j, idx).points;
+  await sb.from('ps_teams').update({ score:(t.score||0)+pts }).eq('id', teamId);
+  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null }).eq('id',1);
+}
+async function markWrong(teamId){
+  if(!requireAdmin()) return;
+  const out = new Set(gameState.out_teams||[]); out.add(teamId);
+  await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
+}
+
+document.getElementById('revealAnsBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const j = currentJourney(); if(!j) return;
+  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null }).eq('id',1);
+});
+document.getElementById('resetJourneyBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const j = currentJourney(); if(!j) return;
+  if(!confirm('Nollställa denna resa? Redan tilldelade poäng dras inte tillbaka automatiskt.')) return;
+  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[] }).eq('id',1);
+});
+document.getElementById('backToLibrary').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  await sb.from('ps_game_state').update({ current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[] }).eq('id',1);
+});
+
+/* ============================================================
+   ADMIN: RESOR TAB (editor, per-clue points)
+   ============================================================ */
+function renderResorTab(){
+  document.getElementById('resorLocked').classList.toggle('hidden', isAdmin);
+  document.getElementById('resorAdmin').classList.toggle('hidden', !isAdmin);
+  if(isAdmin){ renderJourneyAdmin(); document.getElementById('buzzerSoundUrl').value = gameState.buzzer_sound_url || ''; }
+}
+const DEFAULT_SCALE = [10,8,6,4,2,1];
+function renderClueEditor(clues){
+  const list = document.getElementById('clueEditorList');
+  list.innerHTML = "";
+  clues.forEach((c,i)=> list.appendChild(clueRow(c,i)));
+}
+function clueRow(clue, i){
+  const c = (typeof clue==='string') ? {text:clue,image:null,points:DEFAULT_SCALE[i]||1} : (clue||{text:'',image:null,points:DEFAULT_SCALE[i]||1});
+  const row = document.createElement('div');
+  row.className = 'clue-editor-row';
+  row.innerHTML = `<span class="cnum">${i+1}</span>
+    <div class="pts-field"><label>Poäng</label><input type="number" class="pts-input" value="${c.points ?? (DEFAULT_SCALE[i]||1)}" min="1"></div>
+    <div class="img-field">
+      <textarea rows="2" placeholder="${i===0?'Gåta/liknelse som startar resan...':'Ledtråd '+(i+1)+'...'}">${escapeHtml(c.text||"")}</textarea>
+      <input type="text" class="img-url" placeholder="Bild-URL (valfritt)" value="${escapeHtml(c.image||"")}">
+    </div>
+    <img class="img-preview ${c.image?'show':''}" src="${escapeHtml(c.image||"")}">
+    <button type="button" title="Ta bort ledtråd">✕</button>`;
+  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberClues(); });
+  const imgInput = row.querySelector('.img-url'); const imgPreview = row.querySelector('.img-preview');
+  imgInput.addEventListener('input', ()=>{ if(imgInput.value.trim()){ imgPreview.src=imgInput.value.trim(); imgPreview.classList.add('show'); } else imgPreview.classList.remove('show'); });
+  return row;
+}
+function renumberClues(){ document.querySelectorAll('#clueEditorList .clue-editor-row').forEach((row,i)=> row.querySelector('.cnum').textContent = i+1); }
+document.getElementById('addClueBtn').addEventListener('click', ()=>{
+  const list = document.getElementById('clueEditorList');
+  const i = list.children.length;
+  list.appendChild(clueRow({text:'',image:null,points: DEFAULT_SCALE[i] || 1}, i));
+});
+
+function clearForm(){
+  editingId = null;
+  document.getElementById('editorHeading').textContent = 'Ny resa';
+  document.getElementById('jTitle').value = '';
+  document.getElementById('jAnswer').value = '';
+  renderClueEditor([
+    {text:'',image:null,points:10},{text:'',image:null,points:8},{text:'',image:null,points:6},
+    {text:'',image:null,points:4},{text:'',image:null,points:2},{text:'',image:null,points:1}
+  ]);
+}
+document.getElementById('clearFormBtn').addEventListener('click', clearForm);
+document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const title = document.getElementById('jTitle').value.trim() || 'Namnlös resa';
+  const answer = document.getElementById('jAnswer').value.trim();
+  const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
+    const text = row.querySelector('textarea').value.trim();
+    const image = row.querySelector('.img-url').value.trim();
+    const points = parseInt(row.querySelector('.pts-input').value,10) || 1;
+    return text ? {text, image: image||null, points} : null;
+  }).filter(Boolean);
+  if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
+  if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
+  if(editingId){
+    await sb.from('ps_journeys').update({ title, answer, clues, revealed:0, is_done:false }).eq('id', editingId);
+  } else {
+    await sb.from('ps_journeys').insert({ title, answer, clues, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+  }
+  clearForm();
+});
+function renderJourneyAdmin(){
+  document.getElementById('journeyCount').textContent = journeys.length;
+  const el = document.getElementById('journeyListAdmin');
+  if(!journeys.length){ el.innerHTML = `<p class="help">Inga resor ännu — skapa en ovan.</p>`; return; }
+  el.innerHTML = journeys.map(j=>`
+    <div class="jl-row">
+      <div class="jl-info"><b>${escapeHtml(j.title)}</b>
+        <div>${j.clues.length} ledtrådar · svar: ${escapeHtml(j.answer)} · ${clueOf(j,0).points}p→${clueOf(j,j.clues.length-1).points}p ${j.is_done?'· ✅ spelad':''}</div>
+      </div>
+      <div class="jl-actions">
+        <button class="btn btn-ghost btn-sm" data-edit="${j.id}">Redigera</button>
+        <button class="btn btn-red btn-sm" data-del="${j.id}">Ta bort</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> loadJourneyIntoForm(b.dataset.edit)));
+  el.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', async ()=>{ if(confirm('Ta bort den här resan?')) await sb.from('ps_journeys').delete().eq('id', b.dataset.del); }));
+}
+function loadJourneyIntoForm(id){
+  const j = journeys.find(x=>x.id===id); if(!j) return;
+  editingId = id;
+  document.getElementById('editorHeading').textContent = 'Redigera: ' + j.title;
+  document.getElementById('jTitle').value = j.title;
+  document.getElementById('jAnswer').value = j.answer;
+  renderClueEditor(j.clues);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.getElementById('saveSoundBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const url = document.getElementById('buzzerSoundUrl').value.trim();
+  await sb.from('ps_game_state').update({ buzzer_sound_url: url || null }).eq('id',1);
+});
+document.getElementById('testSoundBtn').addEventListener('click', playBuzzerSound);
+
+/* ============================================================
+   ADMIN: MELLANFRÅGOR TAB
+   ============================================================ */
+function renderMellanTab(){
+  document.getElementById('mellanLocked').classList.toggle('hidden', isAdmin);
+  document.getElementById('mellanAdmin').classList.toggle('hidden', !isAdmin);
+  if(!isAdmin) return;
+  const el = document.getElementById('bqList');
+  el.innerHTML = bonusQuestions.length ? bonusQuestions.map(q=>{
+    const active = gameState.active_bonus_question_id === q.id;
+    return `<div class="jl-row">
+      <div class="jl-info"><b>${escapeHtml(q.prompt)}</b><div>${q.points}p ${q.reference_answer?('· facit: '+escapeHtml(q.reference_answer)):''} ${active?'· 🟢 AKTIV':''}</div></div>
+      <div class="jl-actions">
+        <button class="btn ${active?'btn-red':'btn-gold'} btn-sm" data-toggle="${q.id}">${active?'Avaktivera':'Aktivera'}</button>
+        <button class="btn btn-red btn-sm" data-delq="${q.id}">Ta bort</button>
+      </div>
+    </div>`;
+  }).join('') : `<p class="help">Inga mellanfrågor ännu.</p>`;
+  el.querySelectorAll('[data-toggle]').forEach(b=> b.addEventListener('click', async ()=>{
+    const activating = gameState.active_bonus_question_id !== b.dataset.toggle;
+    await sb.from('ps_game_state').update({ active_bonus_question_id: activating ? b.dataset.toggle : null }).eq('id',1);
+  }));
+  el.querySelectorAll('[data-delq]').forEach(b=> b.addEventListener('click', async ()=>{ if(confirm('Ta bort frågan?')) await sb.from('ps_bonus_questions').delete().eq('id', b.dataset.delq); }));
+
+  const answersPanel = document.getElementById('bqAnswersPanel');
+  if(gameState.active_bonus_question_id){
+    answersPanel.classList.remove('hidden');
+    const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+    const list = document.getElementById('bqAnswersList');
+    if(!bonusAnswers.length){ list.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
+    else {
+      list.innerHTML = bonusAnswers.map(a=>{
+        const t = teams.find(x=>x.id===a.team_id);
+        return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${escapeHtml(a.answer_text||'')}</div></div>
+          <div class="jl-actions"><button class="btn btn-gold btn-sm" data-award="${a.team_id}" data-pts="${q?q.points:5}">+${q?q.points:5}p</button></div></div>`;
+      }).join('');
+      list.querySelectorAll('[data-award]').forEach(b=> b.addEventListener('click', async ()=>{
+        const t = teams.find(x=>x.id===b.dataset.award); if(!t) return;
+        await sb.from('ps_teams').update({ score:(t.score||0)+parseInt(b.dataset.pts,10) }).eq('id', t.id);
+      }));
+    }
+  } else {
+    answersPanel.classList.add('hidden');
+  }
+}
+document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const prompt = document.getElementById('bqPrompt').value.trim();
+  const reference_answer = document.getElementById('bqAnswer').value.trim();
+  const points = parseInt(document.getElementById('bqPoints').value,10) || 5;
+  if(!prompt){ alert('Skriv en fråga.'); return; }
+  await sb.from('ps_bonus_questions').insert({ prompt, reference_answer: reference_answer||null, points, sort_order: bonusQuestions.length+1 });
+  document.getElementById('bqPrompt').value=''; document.getElementById('bqAnswer').value=''; document.getElementById('bqPoints').value=5;
+});
+
+/* ============================================================
+   ADMIN: LAG TAB
+   ============================================================ */
 function renderTeamsTab(){
   document.getElementById('addTeamBtn').classList.toggle('hidden', !isAdmin);
   document.getElementById('manualScorePanel').classList.toggle('hidden', !isAdmin);
-  document.getElementById('teamsHelp').textContent = isAdmin
-    ? 'Lägg till, döp om eller ta bort lag (5–8 funkar bäst).'
-    : 'Logga in som admin för att redigera lagen.';
-
+  document.getElementById('teamsHelp').textContent = isAdmin ? 'Lägg till, döp om eller ta bort lag. Koden är vad laget skriver in i spelarläget.' : 'Logga in som admin för att redigera lagen.';
   const el = document.getElementById('teamRows');
   el.innerHTML = teams.map((t,i)=>`
     <div class="team-row">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
       <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" maxlength="24" ${isAdmin?'':'disabled'}>
+      <span class="code">${escapeHtml(t.join_code||'----')}</span>
       ${isAdmin && teams.length>2 ? `<button type="button" data-remove="${t.id}">✕</button>` : ''}
     </div>`).join('');
-
   if(isAdmin){
-    el.querySelectorAll('input').forEach(inp=>{
-      inp.addEventListener('change', async e=>{
-        const newName = e.target.value.trim();
-        if(!newName) return;
-        await sb.from('ps_teams').update({ name:newName }).eq('id', e.target.dataset.id);
-      });
-    });
-    el.querySelectorAll('button[data-remove]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        await sb.from('ps_teams').delete().eq('id', btn.dataset.remove);
-      });
-    });
+    el.querySelectorAll('input').forEach(inp=> inp.addEventListener('change', async e=>{
+      const v = e.target.value.trim(); if(!v) return;
+      await sb.from('ps_teams').update({ name:v }).eq('id', e.target.dataset.id);
+    }));
+    el.querySelectorAll('button[data-remove]').forEach(btn=> btn.addEventListener('click', async ()=>{ await sb.from('ps_teams').delete().eq('id', btn.dataset.remove); }));
   }
   renderManualScoreRows();
 }
-
 document.getElementById('addTeamBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   if(teams.length>=10) return;
-  const name = `Lag ${teams.length+1}`;
-  await sb.from('ps_teams').insert({ name, score:0, sort_order: teams.length+1 });
+  const code = Math.random().toString(36).slice(2,6).toUpperCase();
+  await sb.from('ps_teams').insert({ name:`Lag ${teams.length+1}`, score:0, sort_order: teams.length+1, join_code: code });
 });
-
 function renderManualScoreRows(){
   const el = document.getElementById('manualScoreRows');
   if(!isAdmin){ el.innerHTML=''; return; }
@@ -551,293 +989,97 @@ function renderManualScoreRows(){
       <button type="button" data-id="${t.id}" data-d="1" style="width:auto; padding:0 10px;">+1</button>
       <button type="button" data-id="${t.id}" data-d="5" style="width:auto; padding:0 10px;">+5</button>
     </div>`).join('');
-  el.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10)));
-  });
+  el.querySelectorAll('button').forEach(b=> b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10))));
 }
 
-/* ---------------- RESOR TAB (editor) ---------------- */
-function renderResorTab(){
-  document.getElementById('resorLocked').classList.toggle('hidden', isAdmin);
-  document.getElementById('resorAdmin').classList.toggle('hidden', !isAdmin);
-  if(isAdmin) renderJourneyAdmin();
+/* ============================================================
+   SPELARLÄGE (player mode)
+   ============================================================ */
+document.getElementById('joinBtn').addEventListener('click', doJoin);
+document.getElementById('joinCode').addEventListener('keydown', e=>{ if(e.key==='Enter') doJoin(); });
+async function doJoin(){
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  const errEl = document.getElementById('joinErr');
+  if(!code){ errEl.textContent='Skriv en kod.'; return; }
+  await fetchTeams();
+  const t = teams.find(x=> (x.join_code||'').toUpperCase() === code);
+  if(!t){ errEl.textContent='Ingen match — kolla koden med admin.'; return; }
+  myTeam = t;
+  errEl.textContent = '';
+  setMode('spelare', { team: code });
+}
+if(pendingTeamCode){
+  // try auto-join once teams are loaded
+  const tryAutoJoin = setInterval(()=>{
+    if(teams.length){
+      const t = teams.find(x=> (x.join_code||'').toUpperCase() === pendingTeamCode.toUpperCase());
+      if(t){ myTeam = t; renderAll(); }
+      clearInterval(tryAutoJoin);
+    }
+  }, 300);
 }
 
-function renderClueEditor(clues){
-  const list = document.getElementById('clueEditorList');
-  list.innerHTML = "";
-  clues.forEach((c,i)=> list.appendChild(clueRow(c,i)));
-  updateScalePreview();
-}
-function clueRow(clue, i){
-  const c = (typeof clue === 'string') ? { text: clue, image: null } : (clue || { text:'', image:null });
-  const row = document.createElement('div');
-  row.className = 'clue-editor-row';
-  row.innerHTML = `<span class="cnum">${i+1}</span>
-    <div class="img-field">
-      <textarea rows="2" placeholder="Ledtråd ${i+1}... (vad hör lagen?)">${escapeHtml(c.text||"")}</textarea>
-      <input type="text" class="img-url" placeholder="Bild-URL för vad man ser genom fönstret (valfritt)" value="${escapeHtml(c.image||"")}">
-    </div>
-    <img class="img-preview ${c.image?'show':''}" src="${escapeHtml(c.image||"")}">
-    <button type="button" title="Ta bort ledtråd">✕</button>`;
-  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberClues(); updateScalePreview(); });
-  row.querySelector('textarea').addEventListener('input', updateScalePreview);
-  const imgInput = row.querySelector('.img-url');
-  const imgPreview = row.querySelector('.img-preview');
-  imgInput.addEventListener('input', ()=>{
-    if(imgInput.value.trim()){ imgPreview.src = imgInput.value.trim(); imgPreview.classList.add('show'); }
-    else { imgPreview.classList.remove('show'); }
-  });
-  return row;
-}
-function renumberClues(){
-  document.querySelectorAll('#clueEditorList .clue-editor-row').forEach((row,i)=> row.querySelector('.cnum').textContent = i+1);
-}
-document.getElementById('addClueBtn').addEventListener('click', ()=>{
-  const list = document.getElementById('clueEditorList');
-  list.appendChild(clueRow("", list.children.length));
-  updateScalePreview();
-});
-function updateScalePreview(){
-  const start = parseInt(document.getElementById('jStart').value,10) || 0;
-  const step = parseInt(document.getElementById('jStep').value,10) || 0;
-  const n = document.querySelectorAll('#clueEditorList .clue-editor-row').length || 0;
-  const vals = [];
-  for(let i=0;i<n;i++) vals.push(Math.max(1, start - step*i));
-  document.getElementById('scalePreview').innerHTML = n ? `Poängskala: <b>${vals.join(' → ')}</b>` : `Lägg till ledtrådar för att se poängskalan.`;
-}
-document.getElementById('jStart').addEventListener('input', updateScalePreview);
-document.getElementById('jStep').addEventListener('input', updateScalePreview);
+function renderSpelare(){
+  document.getElementById('joinBox').classList.toggle('hidden', !!myTeam);
+  document.getElementById('playerDash').classList.toggle('hidden', !myTeam);
+  if(!myTeam) return;
 
-function clearForm(){
-  editingId = null;
-  document.getElementById('editorHeading').textContent = 'Ny resa';
-  document.getElementById('jTitle').value = '';
-  document.getElementById('jAnswer').value = '';
-  document.getElementById('jStart').value = 20;
-  document.getElementById('jStep').value = 4;
-  renderClueEditor(["","",""]);
-}
-document.getElementById('clearFormBtn').addEventListener('click', clearForm);
+  // refresh my team's live score object
+  const fresh = teams.find(t=>t.id===myTeam.id);
+  if(fresh) myTeam = fresh;
 
-document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
-  if(!requireAdmin()) return;
-  const title = document.getElementById('jTitle').value.trim() || 'Namnlös resa';
-  const answer = document.getElementById('jAnswer').value.trim();
-  const start_points = parseInt(document.getElementById('jStart').value,10) || 20;
-  const step = parseInt(document.getElementById('jStep').value,10) || 0;
-  const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
-    const text = row.querySelector('textarea').value.trim();
-    const image = row.querySelector('.img-url').value.trim();
-    return text ? { text, image: image || null } : null;
-  }).filter(Boolean);
+  renderScoreboardInto('scoreboardPlayer', myTeam.id);
 
-  if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
-  if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
+  const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
+  const out = new Set(gameState.out_teams||[]);
+  const iAmOut = out.has(myTeam.id);
+  const someoneBuzzed = gameState.resolved===false;
+  const btn = document.getElementById('buzzBtn');
+  const statusEl = document.getElementById('playerStatus');
 
-  if(editingId){
-    await sb.from('ps_journeys').update({ title, answer, start_points, step, clues, revealed:0, is_done:false }).eq('id', editingId);
+  document.getElementById('playerJourneyInfo').textContent = j ? `Resa pågår — ${j.revealed}/${j.clues.length} ledtrådar visade` : 'Väntar på att admin startar en resa…';
+
+  if(!j || j.is_done){
+    btn.disabled = true; statusEl.textContent = j && j.is_done ? '✅ Resan är avgjord.' : '';
+  } else if(iAmOut){
+    btn.disabled = true; statusEl.textContent = 'Ni har redan gissat fel på denna resa.';
+  } else if(someoneBuzzed){
+    btn.disabled = true;
+    const bt = teams.find(t=>t.id===gameState.buzzed_team_id);
+    statusEl.textContent = gameState.buzzed_team_id===myTeam.id ? '🚨 Ni gissar — vänta på admin!' : `${bt?bt.name:'Ett annat lag'} gissar just nu…`;
+  } else if(j.revealed===0){
+    btn.disabled = true; statusEl.textContent = 'Väntar på första ledtråden…';
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, start_points, step, clues, sort_order: journeys.length+1 });
+    btn.disabled = false; statusEl.textContent = 'Tryck om ni vet svaret!';
   }
-  clearForm();
-});
 
-function renderJourneyAdmin(){
-  document.getElementById('journeyCount').textContent = journeys.length;
-  const el = document.getElementById('journeyListAdmin');
-  if(!journeys.length){ el.innerHTML = `<p class="help">Inga resor ännu — skapa en ovan.</p>`; return; }
-  el.innerHTML = journeys.map(j=>`
-    <div class="jl-row">
-      <div class="jl-info">
-        <b>${escapeHtml(j.title)}</b>
-        <div>${j.clues.length} ledtrådar · svar: ${escapeHtml(j.answer)} · poäng ${j.start_points}→${Math.max(1, j.start_points-j.step*(j.clues.length-1))} ${j.is_done? '· ✅ spelad' : ''}</div>
-      </div>
-      <div class="jl-actions">
-        <button class="btn btn-ghost btn-sm" data-edit="${j.id}">Redigera</button>
-        <button class="btn btn-red btn-sm" data-del="${j.id}">Ta bort</button>
-      </div>
-    </div>`).join('');
-  el.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> loadJourneyIntoForm(b.dataset.edit)));
-  el.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', async ()=>{
-    if(confirm('Ta bort den här resan?')) await sb.from('ps_journeys').delete().eq('id', b.dataset.del);
-  }));
-}
-function loadJourneyIntoForm(id){
-  const j = journeys.find(x=>x.id===id);
-  if(!j) return;
-  editingId = id;
-  document.getElementById('editorHeading').textContent = 'Redigera: ' + j.title;
-  document.getElementById('jTitle').value = j.title;
-  document.getElementById('jAnswer').value = j.answer;
-  document.getElementById('jStart').value = j.start_points;
-  document.getElementById('jStep').value = j.step;
-  renderClueEditor(j.clues);
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-
-/* ---------------- SPELA TAB ---------------- */
-function renderLibrary(){
-  const playingId = gameState.current_journey_id;
-  const showLibrary = !playingId;
-  document.getElementById('library').classList.toggle('hidden', !showLibrary);
-  document.getElementById('playView').classList.toggle('hidden', showLibrary);
-  document.getElementById('libraryHelp').textContent = isAdmin
-    ? 'Klicka på ett kort för att starta den resan. Avklarade resor går att spela om.'
-    : 'Väntar på att admin startar en resa…';
-
-  const el = document.getElementById('journeyGrid');
-  if(!journeys.length){ el.innerHTML = `<p class="help">Inga resor skapade än.</p>`; return; }
-  el.innerHTML = journeys.map(j=>`
-    <div class="journey-card ${j.is_done?'done':''}" data-open="${j.id}">
-      <div class="jc-top">
-        <div class="jc-title">${escapeHtml(j.title)}</div>
-        <div class="jc-status">${j.is_done ? 'Spelad' : 'Redo'}</div>
-      </div>
-      <div class="jc-meta">${j.clues.length} ledtrådar · start ${j.start_points}p</div>
-    </div>`).join('');
-  el.querySelectorAll('[data-open]').forEach(c=> c.addEventListener('click', ()=> openJourney(c.dataset.open)));
-}
-
-async function openJourney(id){
-  if(!requireAdmin()) return;
-  currentOut = new Set();
-  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
-  await sb.from('ps_game_state').update({ current_journey_id:id, updated_at:new Date().toISOString() }).eq('id',1);
-}
-
-function currentJourney(){
-  return journeys.find(j=>j.id===gameState.current_journey_id) || null;
-}
-
-function renderPlayView(){
-  const j = currentJourney();
-  document.getElementById('adminPlayActions').classList.toggle('hidden', !isAdmin);
-  document.getElementById('teamPlaySection').classList.toggle('hidden', !isAdmin);
-  if(!j){ renderWindowVisual(null); return; }
-  renderWindowVisual(j);
-
-  document.getElementById('playTag').textContent = j.title;
-  document.getElementById('playPoints').textContent = pointsForClue(j, Math.max(0,j.revealed-1)) + 'p';
-
-  renderRoute(j);
-  renderClueLog(j);
-
-  document.getElementById('nextClueBtn').disabled = j.revealed >= j.clues.length;
-  document.getElementById('nextClueBtn').textContent = j.revealed >= j.clues.length ? 'Sista ledtråden visad' : 'Nästa ledtråd →';
-
-  if(j.is_done && j.answer){
-    document.getElementById('answerBox').classList.remove('hidden');
-    document.getElementById('answerText').textContent = j.answer;
+  // bonus question
+  const bonusBox = document.getElementById('bonusBox');
+  if(gameState.active_bonus_question_id){
+    const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+    bonusBox.classList.remove('hidden');
+    document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
+    const already = bonusAnswersForMe();
+    document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan skickas igen för att ändra)' : '';
   } else {
-    document.getElementById('answerBox').classList.add('hidden');
-  }
-
-  if(isAdmin) renderTeamPlayGrid(j);
-}
-
-function renderRoute(j){
-  const n = j.clues.length;
-  const route = document.getElementById('route');
-  const active = j.revealed - 1;
-  let html = `<div class="route-stops">`;
-  for(let i=0;i<n;i++){
-    let cls = 'stop';
-    if(i < active) cls += ' passed';
-    if(i === active) cls += ' active';
-    html += `<div class="${cls}">${i+1}</div>`;
-  }
-  html += `</div>`;
-  const pct = active < 0 ? 4 : ((active + 0.5) / n) * 100;
-  html += `<div class="train-icon" style="left:${pct}%;">🚂</div>`;
-  route.innerHTML = html;
-}
-
-function renderClueLog(j){
-  const el = document.getElementById('clueLog');
-  if(j.revealed === 0){ el.innerHTML = `<div class="empty-hint">Klicka "Nästa ledtråd" för att avslöja den första.</div>`; return; }
-  el.innerHTML = j.clues.slice(0, j.revealed).map((c,i)=>{
-    const text = (typeof c === 'string') ? c : c.text;
-    const image = (typeof c === 'string') ? null : c.image;
-    return `<div class="clue-item">
-      ${image ? `<img class="thumb" src="${escapeHtml(image)}" alt="">` : ''}
-      <div><span class="cn">Ledtråd ${i+1}</span>${escapeHtml(text)}</div>
-    </div>`;
-  }).join('');
-}
-
-function renderWindowVisual(j){
-  const photoEl = document.getElementById('windowPhoto');
-  const captionEl = document.getElementById('windowCaption');
-  let image = null;
-  if(j && j.revealed > 0){
-    const c = j.clues[j.revealed-1];
-    image = (typeof c === 'string') ? null : (c && c.image);
-  }
-  if(image){
-    photoEl.innerHTML = `<img src="${escapeHtml(image)}" alt="">`;
-    photoEl.classList.add('show');
-    captionEl.textContent = 'Vad ser ni genom fönstret?';
-  } else {
-    photoEl.classList.remove('show');
-    photoEl.innerHTML = '';
-    captionEl.textContent = j ? 'Nu passerar vi NFL-land' : 'Nu passerar vi NFL-land';
+    bonusBox.classList.add('hidden');
   }
 }
-
-document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
-  if(!requireAdmin()) return;
-  const j = currentJourney();
-  if(!j || j.revealed >= j.clues.length) return;
-  await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
+function bonusAnswersForMe(){
+  return bonusAnswers.find(a=> a.team_id===myTeam.id && a.question_id===gameState.active_bonus_question_id);
+}
+document.getElementById('buzzBtn').addEventListener('click', async ()=>{
+  if(!myTeam) return;
+  playBuzzerSound();
+  await sb.from('ps_game_state').update({ buzzed_team_id: myTeam.id, buzzed_at: new Date().toISOString(), resolved:false }).eq('id',1);
 });
-
-function renderTeamPlayGrid(j){
-  const el = document.getElementById('teamPlayGrid');
-  const awarded = j.is_done;
-  el.innerHTML = teams.map(t=>`
-    <div class="team-play-card ${currentOut.has(t.id)?'out':''}">
-      <div class="tp-name"><span class="${currentOut.has(t.id)?'strike':''}">${escapeHtml(t.name)}</span><span style="color:var(--gold-bright); font-family:'Anton',sans-serif;">${t.score||0}</span></div>
-      <div class="tp-btns">
-        <button class="tp-correct" data-id="${t.id}" ${awarded ? 'disabled':''}>✅ Rätt</button>
-        <button class="tp-wrong" data-id="${t.id}" ${(currentOut.has(t.id)||awarded) ? 'disabled':''}>❌ Fel</button>
-      </div>
-    </div>`).join('');
-  el.querySelectorAll('.tp-correct').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.id)));
-  el.querySelectorAll('.tp-wrong').forEach(b=> b.addEventListener('click', ()=>{ currentOut.add(b.dataset.id); renderTeamPlayGrid(currentJourney()); }));
-}
-
-async function awardCorrect(teamId){
-  if(!requireAdmin()) return;
-  const j = currentJourney();
-  const t = teams.find(x=>x.id===teamId);
-  if(!j || !t) return;
-  const idx = Math.max(0, j.revealed - 1);
-  const pts = pointsForClue(j, idx);
-  await sb.from('ps_teams').update({ score:(t.score||0)+pts }).eq('id', teamId);
-  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
-}
-
-document.getElementById('revealAnsBtn').addEventListener('click', async ()=>{
-  if(!requireAdmin()) return;
-  const j = currentJourney();
-  if(!j) return;
-  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
-});
-
-document.getElementById('resetJourneyBtn').addEventListener('click', async ()=>{
-  if(!requireAdmin()) return;
-  const j = currentJourney();
-  if(!j) return;
-  if(!confirm('Nollställa denna resa (ledtrådar & status)? Redan tilldelade poäng dras inte tillbaka automatiskt.')) return;
-  currentOut = new Set();
-  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
-});
-
-document.getElementById('backToLibrary').addEventListener('click', async ()=>{
-  if(!requireAdmin()) return;
-  currentOut = new Set();
-  await sb.from('ps_game_state').update({ current_journey_id:null, updated_at:new Date().toISOString() }).eq('id',1);
+document.getElementById('bonusSubmitBtn').addEventListener('click', async ()=>{
+  if(!myTeam || !gameState.active_bonus_question_id) return;
+  const text = document.getElementById('bonusAnswerInput').value.trim();
+  if(!text) return;
+  await sb.from('ps_bonus_answers').upsert({ question_id: gameState.active_bonus_question_id, team_id: myTeam.id, answer_text: text, submitted_at: new Date().toISOString() }, { onConflict:'question_id,team_id' });
+  await fetchBonusAnswers();
+  document.getElementById('bonusStatus').textContent = 'Svar skickat ✅';
 });
 
 /* ---------------- INIT ---------------- */
@@ -847,7 +1089,15 @@ document.getElementById('backToLibrary').addEventListener('click', async ()=>{
   updateAuthUI();
   clearForm();
   await refetchAll();
+  if(currentMode!=='select'){
+    ['Select','Visning','Spelare','Admin'].forEach(s=>{
+      document.getElementById('screen'+s).classList.toggle('hidden', ('screen'+s) !== ('screen'+currentMode.charAt(0).toUpperCase()+currentMode.slice(1)));
+    });
+  }
+  renderAll();
 })();
+
+setInterval(refetchAll, 4000); // light polling fallback alongside realtime
 </script>
 </body>
 </html>
