@@ -383,6 +383,10 @@
         <label>Sekunder per ledtråd (auto-vidare om ingen gissar)</label>
         <input type="number" id="jSeconds" value="25" min="5" style="margin-bottom:14px;">
 
+        <label>Genomgående resevideo (valfritt — spelas hela resan, spolas fram i takt med ledtrådarna)</label>
+        <input type="text" id="jVideo" placeholder="https://... .mp4 (bil/tåg från start till mål)" style="margin-bottom:14px;">
+        <p class="help" style="margin-top:-8px;">Finns en video här visas den istället för bilderna på enskilda ledtrådar.</p>
+
         <div class="row-actions">
           <button class="btn btn-gold" id="saveJourneyBtn" type="button">Spara resa</button>
           <button class="btn btn-ghost" id="clearFormBtn" type="button">Rensa formulär</button>
@@ -654,9 +658,10 @@ async function adjustScore(teamId, delta){
 
 /* ============================================================
    STAGE (shared big image+text component) — used by admin+visning
+   Stateful: rebuilds the shell only when the journey/video changes,
+   so a full-journey video keeps playing instead of restarting.
    ============================================================ */
-function stageHTML(j, {big}){
-  const size = big ? 'stage-lg' : 'stage-md';
+function stageShell(j, size){
   if(!j){
     return `<div class="stage ${size}">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
@@ -664,26 +669,76 @@ function stageHTML(j, {big}){
       <div class="stage-empty"><div class="title">🚂 Väntar på nästa resa</div><div class="desc">Admin startar snart en ny resa att gissa.</div></div>
     </div>`;
   }
+  const hasVideo = !!j.video_url;
+  return `<div class="stage ${size}">
+    <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+    <div class="stage-photo ${hasVideo?'show':''}">${hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" autoplay muted loop playsinline></video>` : ''}</div>
+    <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
+    <div class="stage-points"></div>
+    <div class="stage-text-wrap"></div>
+    <div class="route-strip"></div>
+    <div class="stage-buzz-wrap"></div>
+  </div>`;
+}
+function seekJourneyVideo(container, fraction){
+  const v = container.querySelector('video.journey-video');
+  if(!v) return;
+  const doSeek = ()=>{ try{ if(v.duration){ v.currentTime = Math.min(fraction*v.duration, v.duration-0.2); } v.play().catch(()=>{}); }catch(e){} };
+  if(v.readyState >= 1 && v.duration) doSeek(); else v.addEventListener('loadedmetadata', doSeek, {once:true});
+}
+function renderStage(container, j, size){
+  size = size || 'stage-lg';
+  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + size) : ('empty|'+size);
+  if(container.dataset.stageKey !== key){
+    container.dataset.stageKey = key;
+    container.dataset.lastImg = '';
+    container.dataset.lastFraction = '';
+    container.innerHTML = stageShell(j, size);
+  }
+  if(!j) return;
+
   const idx = Math.max(0, j.revealed-1);
   const c = j.revealed>0 ? clueOf(j, idx) : null;
   const pts = j.revealed>0 ? c.points : clueOf(j,0).points;
   const n = j.clues.length;
-  let dots = '';
-  for(let i=0;i<n;i++) dots += `<div class="dot ${i<j.revealed?'on':''}"></div>`;
 
-  const buzzBanner = (gameState.resolved===false && gameState.current_journey_id===j.id)
-    ? `<div class="stage-buzz-banner"><div class="txt">🚨 ${escapeHtml((teams.find(t=>t.id===gameState.buzzed_team_id)||{}).name || 'Ett lag')} gissar!</div></div>` : '';
+  const ptsEl = container.querySelector('.stage-points');
+  if(ptsEl) ptsEl.textContent = pts + 'p';
 
-  return `<div class="stage ${size}">
-    <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
-    <div class="stage-photo ${c && c.image ? 'show':''}">${c && c.image ? mediaTag(c.image,'') : ''}</div>
-    <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
-    <div class="stage-points">${pts}p</div>
-    ${j.revealed>0 ? `<div class="stage-text"><span class="clue-num">Ledtråd ${idx+1} / ${n}</span><div class="clue-text">${escapeHtml(c.text)}</div></div>`
-                   : `<div class="stage-empty"><div class="title">${escapeHtml(j.title)}</div><div class="desc">Redo att avslöja första ledtråden.</div></div>`}
-    <div class="route-strip">${dots}</div>
-    ${buzzBanner}
-  </div>`;
+  if(j.video_url){
+    const fraction = j.revealed>0 ? Math.min(0.98, j.revealed/n) : 0.02;
+    if(container.dataset.lastFraction !== String(fraction)){
+      container.dataset.lastFraction = String(fraction);
+      seekJourneyVideo(container, fraction);
+    }
+  } else {
+    const photoWrap = container.querySelector('.stage-photo');
+    const wantImage = (c && c.image) || '';
+    if(photoWrap && container.dataset.lastImg !== wantImage){
+      container.dataset.lastImg = wantImage;
+      photoWrap.classList.toggle('show', !!wantImage);
+      photoWrap.innerHTML = wantImage ? mediaTag(wantImage,'') : '';
+    }
+  }
+
+  const textWrap = container.querySelector('.stage-text-wrap');
+  if(textWrap){
+    textWrap.innerHTML = j.revealed>0
+      ? `<div class="stage-text"><span class="clue-num">Ledtråd ${idx+1} / ${n}</span><div class="clue-text">${escapeHtml(c.text)}</div></div>`
+      : `<div class="stage-empty"><div class="title">${escapeHtml(j.title)}</div><div class="desc">Redo att avslöja första ledtråden.</div></div>`;
+  }
+
+  const routeEl = container.querySelector('.route-strip');
+  if(routeEl){
+    let dots=''; for(let i=0;i<n;i++) dots += `<div class="dot ${i<j.revealed?'on':''}"></div>`;
+    routeEl.innerHTML = dots;
+  }
+
+  const buzzWrap = container.querySelector('.stage-buzz-wrap');
+  if(buzzWrap){
+    buzzWrap.innerHTML = (gameState.resolved===false && gameState.current_journey_id===j.id)
+      ? `<div class="stage-buzz-banner"><div class="txt">🚨 ${escapeHtml((teams.find(t=>t.id===gameState.buzzed_team_id)||{}).name || 'Ett lag')} gissar!</div></div>` : '';
+  }
 }
 
 /* ============================================================
@@ -692,11 +747,13 @@ function stageHTML(j, {big}){
 function renderVisning(){
   renderScoreboardInto('scoreboardVisning', null);
   const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
+  const stageEl = document.getElementById('visningStage');
 
   if(gameState.active_bonus_question_id){
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     document.getElementById('visningSub').textContent = 'Mellanfråga';
-    document.getElementById('visningStage').innerHTML = `<div class="stage stage-lg">
+    stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
+    stageEl.innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
       ${q && q.media_url ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
@@ -705,9 +762,20 @@ function renderVisning(){
     return;
   }
   document.getElementById('visningSub').textContent = j ? 'Vart är tåget på väg?' : 'Draft Express';
-  document.getElementById('visningStage').innerHTML = stageHTML(j, {big:true});
+  renderStage(stageEl, j, 'stage-lg');
+  let answerEl = document.getElementById('visningAnswerBox');
+  if(!answerEl){
+    answerEl = document.createElement('div');
+    answerEl.id = 'visningAnswerBox';
+    answerEl.className = 'answer-reveal';
+    answerEl.style.cssText = 'max-width:980px; margin:16px auto 0;';
+    stageEl.after(answerEl);
+  }
   if(j && j.is_done && j.answer){
-    document.getElementById('visningStage').innerHTML += `<div class="answer-reveal" style="max-width:980px; margin:16px auto 0;"><div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div></div>`;
+    answerEl.classList.remove('hidden');
+    answerEl.innerHTML = `<div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div>`;
+  } else {
+    answerEl.classList.add('hidden');
   }
 }
 
@@ -739,7 +807,7 @@ function currentJourney(){ return journeys.find(j=>j.id===gameState.current_jour
 
 function renderPlayView(){
   const j = currentJourney();
-  document.getElementById('adminStage').innerHTML = stageHTML(j, {big:true});
+  renderStage(document.getElementById('adminStage'), j, 'stage-lg');
   document.getElementById('adminPlayActions').classList.toggle('hidden', !j);
   document.getElementById('teamPlaySection').classList.toggle('hidden', !j);
   if(!j){ ensureClueTimer(null); return; }
@@ -892,6 +960,7 @@ function clearForm(){
   document.getElementById('jTitle').value = '';
   document.getElementById('jAnswer').value = '';
   document.getElementById('jSeconds').value = 25;
+  document.getElementById('jVideo').value = '';
   renderClueEditor([
     {text:'',image:null,points:10},{text:'',image:null,points:8},{text:'',image:null,points:6},
     {text:'',image:null,points:4},{text:'',image:null,points:2},{text:'',image:null,points:1}
@@ -903,6 +972,7 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   const title = document.getElementById('jTitle').value.trim() || 'Namnlös resa';
   const answer = document.getElementById('jAnswer').value.trim();
   const seconds_per_clue = parseInt(document.getElementById('jSeconds').value,10) || 25;
+  const video_url = document.getElementById('jVideo').value.trim() || null;
   const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
     const text = row.querySelector('textarea').value.trim();
     const image = row.querySelector('.img-url').value.trim();
@@ -912,9 +982,9 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
   if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
   if(editingId){
-    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, revealed:0, is_done:false }).eq('id', editingId);
+    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, revealed:0, is_done:false }).eq('id', editingId);
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
   }
   clearForm();
 });
@@ -942,6 +1012,7 @@ function loadJourneyIntoForm(id){
   document.getElementById('jTitle').value = j.title;
   document.getElementById('jAnswer').value = j.answer;
   document.getElementById('jSeconds').value = j.seconds_per_clue || 25;
+  document.getElementById('jVideo').value = j.video_url || '';
   renderClueEditor(j.clues);
   window.scrollTo({top:0, behavior:'smooth'});
 }
