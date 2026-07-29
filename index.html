@@ -475,6 +475,10 @@
         </div>
         <p class="help" style="margin-top:-8px;">Byter automatiskt ut körvideon mot detta så fort resan når slutstationen.</p>
 
+        <label>Ljud under resans gång (från ljudbiblioteket)</label>
+        <select id="jSound" style="margin-bottom:14px;"></select>
+        <p class="help" style="margin-top:-8px;">Spelas i loop i visningsläget medan resan pågår, tystnar när den är klar. Lägg till ljud i Lag-fliken → Ljudbibliotek.</p>
+
         <div class="row-actions">
           <button class="btn btn-gold" id="saveJourneyBtn" type="button">Spara resa</button>
           <button class="btn btn-ghost" id="clearFormBtn" type="button">Rensa formulär</button>
@@ -698,7 +702,10 @@ function setMode(mode, extra){
   });
   renderAll();
 }
-document.querySelectorAll('.mode-card').forEach(c=> c.addEventListener('click', ()=> setMode(c.dataset.mode)));
+document.querySelectorAll('.mode-card').forEach(c=> c.addEventListener('click', ()=>{
+  if(c.dataset.mode==='visning') unlockAmbientAudio();
+  setMode(c.dataset.mode);
+}));
 document.querySelectorAll('[data-back]').forEach(b=> b.addEventListener('click', ()=>{ myTeam=null; setMode('select'); }));
 
 /* ---------------- AUTH (admin) ---------------- */
@@ -784,6 +791,32 @@ function soundUrlForTeam(teamId){
 }
 function playBuzzerSoundForTeam(teamId){ playSoundUrlOrSynth(soundUrlForTeam(teamId)); }
 function playBuzzerSound(){ playSoundUrlOrSynth(gameState.buzzer_sound_url || null); } // generic/testing fallback
+
+let ambientAudioEl = null;
+let ambientAudioKey = null;
+function getAmbientAudio(){
+  if(!ambientAudioEl){ ambientAudioEl = new Audio(); ambientAudioEl.loop = true; ambientAudioEl.volume = 0.6; }
+  return ambientAudioEl;
+}
+function unlockAmbientAudio(){
+  // Priming call from a real user click so later programmatic play() calls aren't blocked
+  const a = getAmbientAudio();
+  a.muted = true;
+  a.play().then(()=>{ a.pause(); a.muted = false; }).catch(()=>{ a.muted = false; });
+}
+function syncAmbientSound(j){
+  const audio = getAmbientAudio();
+  const active = j && j.sound_id && j.revealed>0 && !j.is_done;
+  const key = active ? (j.id + '|' + j.sound_id) : null;
+  if(key === ambientAudioKey) return;
+  ambientAudioKey = key;
+  if(active){
+    const s = sounds.find(x=>x.id===j.sound_id);
+    if(s){ audio.src = s.url; audio.currentTime = 0; audio.play().catch(()=>{}); }
+  } else {
+    audio.pause();
+  }
+}
 
 sb.channel('ps-live')
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_teams' }, refetchAll)
@@ -958,6 +991,7 @@ function renderVisning(){
   const stageEl = document.getElementById('visningStage');
 
   if(gameState.finished){
+    syncAmbientSound(null);
     document.getElementById('visningSub').textContent = 'Spelet är slut!';
     stageEl.dataset.stageKey = 'finished';
     const max = teams.length ? Math.max(...teams.map(t=>t.score||0)) : 0;
@@ -976,6 +1010,7 @@ function renderVisning(){
   }
 
   if(gameState.active_bonus_question_id){
+    syncAmbientSound(null);
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     document.getElementById('visningSub').textContent = 'Mellanfråga';
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
@@ -993,6 +1028,7 @@ function renderVisning(){
   document.getElementById('visningSub').textContent = j ? (gameState.countdown ? 'Gör er redo…' : 'Vart är tåget på väg?') : 'Draft Express';
   renderStage(stageEl, j, 'stage-lg');
   renderCountdown('visningStage');
+  syncAmbientSound(j);
   let answerEl = document.getElementById('visningAnswerBox');
   if(!answerEl){
     answerEl = document.createElement('div');
@@ -1036,7 +1072,7 @@ function renderLibrary(){
   el.innerHTML = journeys.map(j2=>`
     <div class="journey-card ${j2.is_done?'done':''}">
       <div class="jc-top"><div class="jc-title">${escapeHtml(j2.title)}</div><div class="jc-status">${j2.is_done?'Spelad':'Redo'}</div></div>
-      <div class="jc-meta">${j2.clues.length} ledtrådar · ${clueOf(j2,0).points}p → 1p · ⏱${j2.seconds_per_clue||25}s${j2.video_url?' · 🎥':''}</div>
+      <div class="jc-meta">${j2.clues.length} ledtrådar · ${clueOf(j2,0).points}p → 1p · ⏱${j2.seconds_per_clue||25}s${j2.video_url?' · 🎥':''}${j2.sound_id?' · 🔊':''}</div>
       <button class="btn btn-gold" data-start="${j2.id}" style="width:100%; margin-top:10px;">▶ Starta resa</button>
     </div>`).join('');
   el.querySelectorAll('[data-start]').forEach(b=> b.addEventListener('click', e=>{ e.stopPropagation(); startJourney(b.dataset.start); }));
@@ -1270,7 +1306,11 @@ document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
 function renderResorTab(){
   document.getElementById('resorLocked').classList.toggle('hidden', isAdmin);
   document.getElementById('resorAdmin').classList.toggle('hidden', !isAdmin);
-  if(isAdmin){ renderJourneyAdmin(); renderMediaLibrary(); document.getElementById('buzzerSoundUrl').value = gameState.buzzer_sound_url || ''; }
+  if(isAdmin){
+    renderJourneyAdmin(); renderMediaLibrary();
+    if(!editingId) populateJSoundSelect();
+    document.getElementById('buzzerSoundUrl').value = gameState.buzzer_sound_url || '';
+  }
 }
 const DEFAULT_SCALE = [10,8,6,4,2,1];
 function renderClueEditor(clues){
@@ -1310,6 +1350,13 @@ document.getElementById('addClueBtn').addEventListener('click', ()=>{
   list.appendChild(clueRow({text:'',image:null,points: DEFAULT_SCALE[i] || 1}, i));
 });
 
+function populateJSoundSelect(){
+  const sel = document.getElementById('jSound');
+  const current = sel.value;
+  sel.innerHTML = `<option value="">Inget ljud</option>` + sounds.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  if(current && sounds.some(s=>s.id===current)) sel.value = current;
+}
+
 function clearForm(){
   editingId = null;
   document.getElementById('editorHeading').textContent = 'Ny resa';
@@ -1318,6 +1365,8 @@ function clearForm(){
   document.getElementById('jSeconds').value = 25;
   document.getElementById('jVideo').value = '';
   document.getElementById('jArrival').value = '';
+  populateJSoundSelect();
+  document.getElementById('jSound').value = '';
   renderClueEditor([
     {text:'',image:null,points:10},{text:'',image:null,points:8},{text:'',image:null,points:6},
     {text:'',image:null,points:4},{text:'',image:null,points:2},{text:'',image:null,points:1}
@@ -1331,6 +1380,7 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   const seconds_per_clue = parseInt(document.getElementById('jSeconds').value,10) || 25;
   const video_url = document.getElementById('jVideo').value.trim() || null;
   const arrival_media_url = document.getElementById('jArrival').value.trim() || null;
+  const sound_id = document.getElementById('jSound').value || null;
   const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
     const text = row.querySelector('textarea').value.trim();
     const image = row.querySelector('.img-url').value.trim();
@@ -1340,9 +1390,9 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
   if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
   if(editingId){
-    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, revealed:0, is_done:false }).eq('id', editingId);
+    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, sound_id, revealed:0, is_done:false }).eq('id', editingId);
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, sound_id, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
   }
   clearForm();
 });
@@ -1445,6 +1495,8 @@ function loadJourneyIntoForm(id){
   document.getElementById('jSeconds').value = j.seconds_per_clue || 25;
   document.getElementById('jVideo').value = j.video_url || '';
   document.getElementById('jArrival').value = j.arrival_media_url || '';
+  populateJSoundSelect();
+  document.getElementById('jSound').value = j.sound_id || '';
   renderClueEditor(j.clues);
   window.scrollTo({top:0, behavior:'smooth'});
 }
