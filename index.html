@@ -579,11 +579,20 @@
       <h2>Ljudbibliotek</h2>
       <p class="help">Lägg till flera ljud och tilldela ett till varje lag ovan, så låter det olika när de trycker.</p>
       <div id="soundList"></div>
+
+      <div class="form-grid">
+        <div><label>Ladda upp från enheten</label><input type="file" id="sndFileInput" accept="audio/*"></div>
+        <div><label>Namn</label><input type="text" id="sndFileName" placeholder="T.ex. Lag 1-ljud"></div>
+      </div>
+      <button class="btn btn-gold" id="sndUploadBtn" type="button" style="margin-bottom:8px;">⬆️ Ladda upp</button>
+      <div class="modal-err" id="sndUploadStatus"></div>
+      <hr class="sep">
+      <p class="help" style="margin-bottom:10px;">…eller lägg till en befintlig länk direkt:</p>
       <div class="form-grid">
         <div><label>Namn</label><input type="text" id="sndName" placeholder="T.ex. Lag 1-ljud"></div>
         <div><label>Ljud-URL</label><input type="text" id="sndUrl" placeholder="https://... .mp3"></div>
       </div>
-      <button class="btn btn-gold" id="sndSaveBtn" type="button">Lägg till ljud</button>
+      <button class="btn btn-ghost" id="sndSaveBtn" type="button">+ Lägg till länk</button>
     </div>
 
     <div class="panel hidden" id="gameControlPanel">
@@ -1674,6 +1683,22 @@ function renderSoundLibrary(){
     if(confirm('Ta bort ljudet? Lag som använder det återgår till standardljud.')) await sb.from('ps_sounds').delete().eq('id', b.dataset.delsound);
   }));
 }
+document.getElementById('sndUploadBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const fileInput = document.getElementById('sndFileInput');
+  const statusEl = document.getElementById('sndUploadStatus');
+  const file = fileInput.files && fileInput.files[0];
+  if(!file){ statusEl.textContent = 'Välj en ljudfil först.'; return; }
+  const name = document.getElementById('sndFileName').value.trim() || file.name;
+  statusEl.textContent = 'Laddar upp…';
+  const path = `sound-${Date.now()}-${file.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+  const { error: upErr } = await sb.storage.from('ps-media').upload(path, file, { upsert:false });
+  if(upErr){ statusEl.textContent = 'Fel: ' + upErr.message; return; }
+  const { data: pub } = sb.storage.from('ps-media').getPublicUrl(path);
+  await sb.from('ps_sounds').insert({ name, url: pub.publicUrl });
+  statusEl.textContent = '✅ Uppladdat!';
+  fileInput.value = ''; document.getElementById('sndFileName').value = '';
+});
 document.getElementById('sndSaveBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const name = document.getElementById('sndName').value.trim();
