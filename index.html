@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PÅ SPÅRET — DRAFT EXPRESS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --turf-dark:#0d2818; --turf:#153d26; --turf-light:#1f5233;
+    --chalk:#f4f6f2; --gold:#d4af37; --gold-bright:#e8c766;
+    --red:#a8291f; --charcoal:#111511; --line-white:#eef2ea; --muted:#9db3a4;
+    --green-ok:#4c9a6a; --wood:#3a2a18; --wood-dark:#241a10;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 20% -10%, #1c4a2d 0%, transparent 45%),
+      repeating-linear-gradient(90deg, var(--turf) 0px, var(--turf) 80px, var(--turf-light) 80px, var(--turf-light) 160px),
+      var(--turf-dark);
+    color:var(--chalk); font-family:'Inter',sans-serif; min-height:100vh; padding:20px 14px 60px;
+  }
+  .wrap{max-width:1120px; margin:0 auto;}
+  header{text-align:center; margin-bottom:16px;}
+  .eyebrow{font-family:'Space Mono',monospace; letter-spacing:.35em; font-size:10.5px; color:var(--gold-bright); text-transform:uppercase; margin-bottom:6px;}
+  h1{font-family:'Anton',sans-serif; font-weight:400; font-size:clamp(30px,6.5vw,56px); letter-spacing:.02em; margin:0; line-height:.95; text-shadow:0 3px 0 rgba(0,0,0,.25);}
+  h1 span{color:var(--gold-bright);}
+  .sub{font-size:13.5px; color:var(--muted); margin-top:8px; font-weight:500;}
+
+  /* ===== TRAIN WINDOW HERO ===== */
+  .window{
+    position:relative; height:180px; margin:20px auto 6px; max-width:900px;
+    border-radius:26px; overflow:hidden;
+    border:12px solid var(--wood);
+    box-shadow:0 0 0 3px var(--wood-dark), 0 14px 30px -10px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.35);
+    background:#0a1f14;
+  }
+  .window .rivet{position:absolute; width:7px; height:7px; border-radius:50%; background:radial-gradient(circle at 35% 35%, #d9c489, #7a6535); z-index:5;}
+  .window .r1{top:8px; left:8px;} .window .r2{top:8px; right:8px;} .window .r3{bottom:8px; left:8px;} .window .r4{bottom:8px; right:8px;}
+  .sky{position:absolute; inset:0; background:linear-gradient(180deg, #16324f 0%, #2c5a4f 45%, #1c4a30 70%, #123521 100%);}
+  .layer{position:absolute; left:0; right:-10px; height:100%; background-repeat:repeat-x;}
+  .layer-far{
+    bottom:0; height:60%;
+    background-image:repeating-linear-gradient(90deg, transparent 0 84px, rgba(6,14,10,.55) 84px 92px, transparent 92px 220px);
+    animation:scrollFar 42s linear infinite;
+  }
+  .layer-mid{
+    bottom:0; height:38%;
+    background-image:repeating-linear-gradient(90deg, rgba(9,28,18,.7) 0 46px, transparent 46px 140px);
+    clip-path:polygon(0 100%, 0 40%, 5% 20%, 10% 55%, 16% 15%, 22% 60%, 30% 10%, 38% 50%, 46% 25%, 54% 65%, 62% 20%, 70% 55%, 78% 10%, 86% 45%, 94% 15%, 100% 40%, 100% 100%);
+    animation:scrollMid 19s linear infinite;
+  }
+  .layer-near{
+    bottom:0; height:16%;
+    background-image:repeating-linear-gradient(90deg, rgba(4,10,7,.9) 0 5px, transparent 5px 90px);
+    animation:scrollNear 6.5s linear infinite;
+  }
+  @keyframes scrollFar{ from{background-position-x:0;} to{background-position-x:-220px;} }
+  @keyframes scrollMid{ from{transform:translateX(0);} to{transform:translateX(-140px);} }
+  @keyframes scrollNear{ from{background-position-x:0;} to{background-position-x:-90px;} }
+  .glass{position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.10) 0%, transparent 18%, transparent 82%, rgba(255,255,255,.06) 100%); pointer-events:none;}
+  .window-caption{position:absolute; bottom:8px; left:14px; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; color:rgba(244,246,242,.55); text-transform:uppercase; z-index:4;}
+  @media (prefers-reduced-motion: reduce){ .layer-far,.layer-mid,.layer-near{animation:none;} }
+
+  .field-divider{height:9px; margin:16px auto 0; max-width:560px; background:repeating-linear-gradient(90deg, var(--line-white) 0 22px, transparent 22px 40px); opacity:.3; border-radius:2px;}
+
+  /* AUTH BAR */
+  .authbar{display:flex; justify-content:center; align-items:center; gap:10px; margin:16px 0 4px; font-size:12.5px; color:var(--muted);}
+  .authbar .pill{background:var(--charcoal); border:1px solid rgba(212,175,55,.3); border-radius:20px; padding:6px 14px; display:flex; align-items:center; gap:8px;}
+  .authbar .dot{width:7px; height:7px; border-radius:50%; background:#5a6b5f;}
+  .authbar .dot.on{background:var(--green-ok); box-shadow:0 0 6px var(--green-ok);}
+  .authbar button{background:transparent; border:none; color:var(--gold-bright); font-weight:700; cursor:pointer; font-size:12.5px; font-family:'Inter',sans-serif;}
+
+  /* SCOREBOARD */
+  .scoreboard{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:18px 0 18px;}
+  .score-card{background:var(--charcoal); border:1px solid rgba(212,175,55,.35); border-radius:10px; padding:9px 12px; min-width:120px; text-align:center;}
+  .score-card.lead{border-color:var(--gold-bright); box-shadow:0 0 0 1px var(--gold-bright), 0 0 20px -6px var(--gold-bright);}
+  .score-name{font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;}
+  .score-val{font-family:'Anton',sans-serif; font-size:26px; color:var(--gold-bright); margin-bottom:4px;}
+  .score-adj{display:flex; gap:4px; justify-content:center;}
+  .score-adj button{background:transparent; border:1px solid rgba(244,246,242,.25); color:var(--chalk); width:22px; height:22px; border-radius:5px; font-size:12px; cursor:pointer; line-height:1; padding:0;}
+  .score-adj button:hover{border-color:var(--gold-bright); color:var(--gold-bright);}
+
+  /* NAV */
+  .nav{display:flex; gap:8px; justify-content:center; margin-bottom:20px; flex-wrap:wrap;}
+  .nav button{font-family:'Inter',sans-serif; font-weight:700; font-size:13.5px; letter-spacing:.02em; background:var(--charcoal); border:1px solid rgba(244,246,242,.15); color:var(--muted); padding:9px 18px; border-radius:20px; cursor:pointer;}
+  .nav button.active{background:linear-gradient(180deg, var(--gold-bright), var(--gold)); color:#241c04; border-color:transparent;}
+  .nav button:not(.active):hover{border-color:var(--gold-bright); color:var(--gold-bright);}
+
+  .panel{background:rgba(17,21,17,.55); border:1px solid rgba(212,175,55,.25); border-radius:16px; padding:24px; backdrop-filter:blur(2px); margin-bottom:20px;}
+  .panel h2{font-family:'Anton',sans-serif; font-weight:400; font-size:22px; letter-spacing:.02em; margin:0 0 4px; color:var(--gold-bright);}
+  .panel p.help{color:var(--muted); font-size:13px; margin:0 0 18px;}
+  .locked-note{background:rgba(168,41,31,.12); border:1px solid rgba(168,41,31,.4); border-radius:10px; padding:12px 16px; font-size:13px; color:#f0c7c3; margin-bottom:18px;}
+
+  .btn{font-family:'Inter',sans-serif; font-weight:700; font-size:13.5px; border:none; border-radius:9px; padding:10px 18px; cursor:pointer; transition:transform .08s ease;}
+  .btn:active{transform:scale(.97);}
+  .btn-ghost{background:transparent; border:1px solid rgba(244,246,242,.25); color:var(--chalk);}
+  .btn-ghost:hover{border-color:var(--gold-bright); color:var(--gold-bright);}
+  .btn-gold{background:linear-gradient(180deg, var(--gold-bright), var(--gold)); color:#241c04;}
+  .btn-gold:hover{filter:brightness(1.06);}
+  .btn-gold:disabled{opacity:.35; cursor:not-allowed;}
+  .btn-red{background:var(--red); color:#fff;}
+  .btn-red:hover{filter:brightness(1.1);}
+  .btn:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
+  .btn-sm{padding:6px 12px; font-size:12.5px; border-radius:7px;}
+
+  input[type=text], input[type=email], input[type=password], input[type=number], textarea{
+    width:100%; background:var(--charcoal); border:1px solid rgba(244,246,242,.15); color:var(--chalk);
+    padding:9px 11px; border-radius:8px; font-size:14px; font-family:'Inter',sans-serif;
+  }
+  textarea{resize:vertical; min-height:44px;}
+  input:focus, textarea:focus{outline:2px solid var(--gold-bright); outline-offset:1px;}
+  label{font-size:11.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:700; display:block; margin-bottom:5px;}
+
+  .journey-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px;}
+  .journey-card{background:var(--charcoal); border:1px solid rgba(244,246,242,.15); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .12s, transform .08s;}
+  .journey-card:hover{border-color:var(--gold-bright); transform:translateY(-2px);}
+  .journey-card.done{opacity:.45;}
+  .journey-card .jc-top{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;}
+  .journey-card .jc-title{font-family:'Anton',sans-serif; font-size:17px; color:var(--gold-bright); line-height:1.15;}
+  .journey-card .jc-status{font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); border:1px solid rgba(244,246,242,.2); border-radius:12px; padding:2px 8px; white-space:nowrap;}
+  .journey-card .jc-meta{font-size:12px; color:var(--muted);}
+
+  .journey-list-admin{display:flex; flex-direction:column; gap:10px; margin-bottom:18px;}
+  .jl-row{display:flex; justify-content:space-between; align-items:center; background:var(--charcoal); border:1px solid rgba(244,246,242,.12); border-radius:10px; padding:12px 14px; gap:10px; flex-wrap:wrap;}
+  .jl-row .jl-info b{color:var(--chalk); font-size:14.5px;}
+  .jl-row .jl-info div{color:var(--muted); font-size:12px; margin-top:2px;}
+  .jl-actions{display:flex; gap:8px;}
+
+  .clue-editor-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:8px;}
+  .clue-editor-row .cnum{font-family:'Space Mono',monospace; color:var(--gold-bright); font-size:12px; width:20px; padding-top:10px;}
+  .clue-editor-row button{background:transparent; border:1px solid rgba(168,41,31,.5); color:#e28b83; width:32px; height:32px; border-radius:7px; cursor:pointer; flex-shrink:0;}
+  .clue-editor-row button:hover{background:rgba(168,41,31,.2);}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;}
+  .scale-preview{font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); background:var(--charcoal); border-radius:8px; padding:10px 12px; margin-bottom:16px;}
+  .scale-preview b{color:var(--gold-bright);}
+
+  .team-rows{display:flex; flex-direction:column; gap:10px; margin-bottom:16px;}
+  .team-row{display:flex; align-items:center; gap:10px;}
+  .team-row .num{font-family:'Space Mono',monospace; color:var(--gold-bright); font-size:13px; width:22px;}
+  .team-row input{flex:1;}
+  .team-row button{background:transparent; border:1px solid rgba(168,41,31,.5); color:#e28b83; width:34px; height:34px; border-radius:8px; cursor:pointer; font-size:16px; flex-shrink:0;}
+  .team-row button:hover{background:rgba(168,41,31,.2);}
+
+  .qhead{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;}
+  .qtag{font-family:'Space Mono',monospace; font-size:11.5px; letter-spacing:.1em; color:var(--muted); text-transform:uppercase;}
+  .qpoints{font-family:'Anton',sans-serif; font-size:38px; color:var(--gold-bright); line-height:1;}
+
+  .route-wrap{margin:6px 0 20px;}
+  .route{position:relative; height:56px; border:2px solid rgba(244,246,242,.2); border-radius:8px; background:rgba(17,21,17,.4);}
+  .route-stops{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; height:100%;}
+  .stop{display:flex; align-items:center; justify-content:center; border-right:1px solid rgba(244,246,242,.12); font-family:'Space Mono',monospace; font-size:11px; color:rgba(244,246,242,.3); position:relative;}
+  .stop:last-child{border-right:none;}
+  .stop.active{color:var(--gold-bright); background:rgba(212,175,55,.12);}
+  .stop.passed{color:rgba(244,246,242,.15);}
+  .train-icon{position:absolute; top:-18px; width:26px; text-align:center; font-size:19px; transform:translateX(-50%); transition:left .35s ease;}
+
+  .clue-log{display:flex; flex-direction:column; gap:10px; margin-bottom:18px;}
+  .clue-item{background:rgba(17,21,17,.6); border:1px solid rgba(212,175,55,.25); border-radius:10px; padding:14px 16px; font-size:16.5px; line-height:1.5;}
+  .clue-item .cn{font-family:'Space Mono',monospace; font-size:10.5px; color:var(--gold-bright); border:1px solid var(--gold-bright); border-radius:20px; padding:1px 8px; margin-right:8px;}
+  .clue-log .empty-hint{color:var(--muted); font-style:italic; font-size:14px;}
+
+  .qactions{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;}
+
+  .answer-reveal{background:linear-gradient(180deg, rgba(212,175,55,.18), rgba(212,175,55,.05)); border:1px solid var(--gold-bright); border-radius:12px; padding:16px 20px; margin-bottom:20px;}
+  .answer-reveal .label{font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.1em; color:var(--gold-bright); text-transform:uppercase; margin-bottom:5px;}
+  .answer-reveal .ans{font-family:'Anton',sans-serif; font-size:26px;}
+
+  .team-play-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; margin-bottom:20px;}
+  .team-play-card{background:var(--charcoal); border:1px solid rgba(244,246,242,.18); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px;}
+  .team-play-card.out{opacity:.35;}
+  .team-play-card .tp-name{font-weight:700; font-size:14.5px; display:flex; justify-content:space-between; align-items:center;}
+  .team-play-card .tp-name .strike{text-decoration:line-through;}
+  .tp-btns{display:flex; gap:6px;}
+  .tp-btns button{flex:1; padding:7px 4px; border-radius:7px; font-size:12.5px; font-weight:700; cursor:pointer; border:none;}
+  .tp-correct{background:var(--green-ok); color:#fff;}
+  .tp-wrong{background:var(--red); color:#fff;}
+  .tp-btns button:disabled{opacity:.3; cursor:not-allowed;}
+
+  .backbar{margin-top:6px;}
+  footer{text-align:center; color:var(--muted); font-size:11.5px; margin-top:36px; font-family:'Space Mono',monospace; letter-spacing:.05em;}
+  .hidden{display:none !important;}
+  .row-actions{display:flex; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
+
+  /* LOGIN MODAL */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(4,8,5,.72); display:flex; align-items:center; justify-content:center; z-index:50; padding:16px;}
+  .modal{background:var(--charcoal); border:1px solid rgba(212,175,55,.4); border-radius:16px; padding:26px; max-width:340px; width:100%;}
+  .modal h3{font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:20px; margin:0 0 4px;}
+  .modal p{color:var(--muted); font-size:12.5px; margin:0 0 16px;}
+  .modal .field{margin-bottom:12px;}
+  .modal-err{color:#e28b83; font-size:12.5px; margin-bottom:10px; min-height:14px;}
+  .modal-actions{display:flex; gap:8px; margin-top:6px;}
+
+  @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .window{height:130px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <h1>PÅ <span>SPÅRET</span></h1>
+    <div class="sub">Draft Express — följ ledtrådarna genom NFL-landet och gissa rätt stad</div>
+  </header>
+
+  <div class="window">
+    <div class="sky"></div>
+    <div class="layer layer-far"></div>
+    <div class="layer layer-mid"></div>
+    <div class="layer layer-near"></div>
+    <div class="glass"></div>
+    <div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
+    <div class="window-caption">Nu passerar vi NFL-land</div>
+  </div>
+
+  <div class="field-divider"></div>
+
+  <div class="authbar">
+    <div class="pill">
+      <span class="dot" id="authDot"></span>
+      <span id="authLabel">Ej inloggad</span>
+    </div>
+    <button id="authBtn" type="button">Logga in som admin</button>
+  </div>
+
+  <div id="scoreboard" class="scoreboard"></div>
+
+  <nav class="nav">
+    <button data-tab="spela" class="active">🚂 Spela</button>
+    <button data-tab="resor">✏️ Resor & frågor</button>
+    <button data-tab="lag">🏈 Lag & poäng</button>
+  </nav>
+
+  <!-- SPELA TAB -->
+  <section id="tab-spela">
+    <div id="library" class="panel">
+      <h2>Välj en resa</h2>
+      <p class="help" id="libraryHelp">Klicka på ett kort för att starta den resan.</p>
+      <div id="journeyGrid" class="journey-grid"></div>
+    </div>
+
+    <div id="playView" class="panel hidden">
+      <div class="qhead">
+        <div><div class="qtag" id="playTag">Resa</div></div>
+        <div class="qpoints" id="playPoints">–</div>
+      </div>
+
+      <div class="route-wrap"><div class="route" id="route"></div></div>
+
+      <div class="qtag" style="margin-bottom:8px;">Ledtrådar hittills (läs upp för lagen)</div>
+      <div class="clue-log" id="clueLog"><div class="empty-hint">Klicka "Nästa ledtråd" för att avslöja den första.</div></div>
+
+      <div class="qactions" id="adminPlayActions">
+        <button class="btn btn-gold" id="nextClueBtn">Nästa ledtråd →</button>
+        <button class="btn btn-ghost" id="revealAnsBtn">Visa svaret</button>
+        <button class="btn btn-ghost" id="resetJourneyBtn">↺ Nollställ denna resa</button>
+      </div>
+
+      <div id="answerBox" class="answer-reveal hidden">
+        <div class="label">Rätt svar</div>
+        <div class="ans" id="answerText"></div>
+      </div>
+
+      <div id="teamPlaySection">
+        <div class="qtag" style="margin-bottom:10px;">Lag — markera rätt/fel gissning</div>
+        <div class="team-play-grid" id="teamPlayGrid"></div>
+      </div>
+
+      <div class="backbar"><button class="btn btn-ghost" id="backToLibrary">← Tillbaka till resorna</button></div>
+    </div>
+  </section>
+
+  <!-- RESOR TAB -->
+  <section id="tab-resor" class="hidden">
+    <div id="resorLocked" class="panel hidden">
+      <h2>Resor & frågor</h2>
+      <div class="locked-note">🔒 Logga in som admin för att skapa och redigera resor.</div>
+    </div>
+
+    <div id="resorAdmin" class="hidden">
+      <div class="panel">
+        <h2 id="editorHeading">Ny resa</h2>
+        <p class="help">Skriv ledtrådarna i den ordning de ska avslöjas — börja svårt/luddigt, sluta självklart. Sista ledtrådarna ger färre poäng, precis som i På Spåret.</p>
+
+        <label>Internt namn (bara admins ser detta)</label>
+        <input type="text" id="jTitle" placeholder="T.ex. Resa till AFC West" style="margin-bottom:14px;">
+
+        <label>Ledtrådar</label>
+        <div id="clueEditorList"></div>
+        <button class="btn btn-ghost btn-sm" id="addClueBtn" type="button" style="margin-bottom:16px;">+ Lägg till ledtråd</button>
+
+        <label>Rätt svar (stad/lag/spelare)</label>
+        <input type="text" id="jAnswer" placeholder="T.ex. Kansas City" style="margin-bottom:14px;">
+
+        <div class="form-grid">
+          <div><label>Poäng vid första ledtråden</label><input type="number" id="jStart" value="20" min="1"></div>
+          <div><label>Poäng som dras av per ledtråd</label><input type="number" id="jStep" value="4" min="0"></div>
+        </div>
+        <div class="scale-preview" id="scalePreview"></div>
+
+        <div class="row-actions">
+          <button class="btn btn-gold" id="saveJourneyBtn" type="button">Spara resa</button>
+          <button class="btn btn-ghost" id="clearFormBtn" type="button">Rensa formulär</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Alla resor (<span id="journeyCount">0</span>)</h2>
+        <p class="help">Klicka "Redigera" för att ändra en resa, eller ta bort den.</p>
+        <div id="journeyListAdmin" class="journey-list-admin"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LAG TAB -->
+  <section id="tab-lag" class="hidden">
+    <div class="panel">
+      <h2>Lag</h2>
+      <p class="help" id="teamsHelp">Lägg till, döp om eller ta bort lag (5–8 funkar bäst).</p>
+      <div id="teamRows" class="team-rows"></div>
+      <button class="btn btn-ghost hidden" id="addTeamBtn" type="button">+ Lägg till lag</button>
+    </div>
+
+    <div class="panel hidden" id="manualScorePanel">
+      <h2>Manuell poängjustering</h2>
+      <p class="help">För rättningar, bonuspoäng eller avdrag utanför en pågående resa.</p>
+      <div id="manualScoreRows"></div>
+    </div>
+  </section>
+
+  <footer>PÅ SPÅRET — DRAFT EXPRESS · Kopplad till Supabase för kvällens draft</footer>
+</div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Admin-inloggning</h3>
+    <p>Logga in för att redigera resor, lag och poäng.</p>
+    <div class="modal-err" id="loginErr"></div>
+    <div class="field"><label>E-post</label><input type="email" id="loginEmail" autocomplete="username"></div>
+    <div class="field"><label>Lösenord</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold" id="loginSubmit" type="button" style="flex:1;">Logga in</button>
+      <button class="btn btn-ghost" id="loginCancel" type="button">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://fajtxhxwvnuhfkytdcqi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhanR4aHh3dm51aGZreXRkY3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NTk3NjMsImV4cCI6MjA5OTMzNTc2M30.b7rMbVl_56fbRSESVO8HT5XuGoeshtY4jozfZ9T8Aqg';
+
+// In-memory-only storage adapter (artifacts must never touch localStorage/sessionStorage)
+const memoryStorage = (() => {
+  let store = {};
+  return {
+    getItem: k => (k in store ? store[k] : null),
+    setItem: (k,v) => { store[k]=v; },
+    removeItem: k => { delete store[k]; }
+  };
+})();
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storage: memoryStorage, persistSession: true, autoRefreshToken: true }
+});
+
+/* ---------------- STATE ---------------- */
+let teams = [];
+let journeys = [];
+let gameState = { current_journey_id: null };
+let isAdmin = false;
+let currentOut = new Set();
+let editingId = null;
+
+function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function pointsForClue(j, idx){ return Math.max(1, j.start_points - j.step*idx); }
+
+/* ---------------- AUTH ---------------- */
+function openLogin(){
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('loginModal').classList.remove('hidden');
+}
+function closeLogin(){ document.getElementById('loginModal').classList.add('hidden'); }
+
+document.getElementById('authBtn').addEventListener('click', ()=>{
+  if(isAdmin){ sb.auth.signOut(); } else { openLogin(); }
+});
+document.getElementById('loginCancel').addEventListener('click', closeLogin);
+document.getElementById('loginSubmit').addEventListener('click', async ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = 'Loggar in…';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ errEl.textContent = 'Fel e-post eller lösenord.'; return; }
+  closeLogin();
+});
+
+sb.auth.onAuthStateChange((_event, session)=>{
+  isAdmin = !!session;
+  updateAuthUI();
+  renderAll();
+});
+
+function updateAuthUI(){
+  document.getElementById('authDot').classList.toggle('on', isAdmin);
+  document.getElementById('authLabel').textContent = isAdmin ? 'Inloggad som admin' : 'Ej inloggad';
+  document.getElementById('authBtn').textContent = isAdmin ? 'Logga ut' : 'Logga in som admin';
+}
+
+function requireAdmin(){
+  if(!isAdmin){ openLogin(); return false; }
+  return true;
+}
+
+/* ---------------- NAV ---------------- */
+document.querySelectorAll('.nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['spela','resor','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
+    renderAll();
+  });
+});
+
+/* ---------------- FETCH ---------------- */
+async function fetchTeams(){
+  const { data } = await sb.from('ps_teams').select('*').order('sort_order');
+  teams = data || [];
+}
+async function fetchJourneys(){
+  const { data } = await sb.from('ps_journeys').select('*').order('sort_order');
+  journeys = data || [];
+}
+async function fetchGameState(){
+  const { data } = await sb.from('ps_game_state').select('*').eq('id',1).single();
+  if(data) gameState = data;
+}
+
+async function refetchAll(){
+  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState()]);
+  renderAll();
+}
+
+/* ---------------- REALTIME ---------------- */
+sb.channel('ps-live')
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_teams' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_journeys' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_game_state' }, refetchAll)
+  .subscribe();
+
+/* ---------------- RENDER ROOT ---------------- */
+function renderAll(){
+  renderScoreboard();
+  renderLibrary();
+  renderPlayView();
+  renderResorTab();
+  renderTeamsTab();
+}
+
+/* ---------------- SCOREBOARD ---------------- */
+function renderScoreboard(){
+  const el = document.getElementById('scoreboard');
+  if(!teams.length){ el.innerHTML=""; return; }
+  const max = Math.max(...teams.map(t=>t.score||0));
+  el.innerHTML = teams.map(t=>{
+    const isLead = (t.score||0)===max && max>0;
+    return `<div class="score-card ${isLead?'lead':''}">
+      <div class="score-name">${escapeHtml(t.name)}</div>
+      <div class="score-val">${t.score||0}</div>
+      ${isAdmin ? `<div class="score-adj">
+        <button data-id="${t.id}" data-d="-1">−1</button>
+        <button data-id="${t.id}" data-d="1">+1</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.score-adj button').forEach(b=>{
+    b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10)));
+  });
+}
+
+async function adjustScore(teamId, delta){
+  if(!requireAdmin()) return;
+  const t = teams.find(x=>x.id===teamId);
+  if(!t) return;
+  await sb.from('ps_teams').update({ score: (t.score||0)+delta }).eq('id', teamId);
+}
+
+/* ---------------- LAG TAB ---------------- */
+function renderTeamsTab(){
+  document.getElementById('addTeamBtn').classList.toggle('hidden', !isAdmin);
+  document.getElementById('manualScorePanel').classList.toggle('hidden', !isAdmin);
+  document.getElementById('teamsHelp').textContent = isAdmin
+    ? 'Lägg till, döp om eller ta bort lag (5–8 funkar bäst).'
+    : 'Logga in som admin för att redigera lagen.';
+
+  const el = document.getElementById('teamRows');
+  el.innerHTML = teams.map((t,i)=>`
+    <div class="team-row">
+      <span class="num">${String(i+1).padStart(2,'0')}</span>
+      <input type="text" value="${escapeHtml(t.name)}" data-id="${t.id}" maxlength="24" ${isAdmin?'':'disabled'}>
+      ${isAdmin && teams.length>2 ? `<button type="button" data-remove="${t.id}">✕</button>` : ''}
+    </div>`).join('');
+
+  if(isAdmin){
+    el.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('change', async e=>{
+        const newName = e.target.value.trim();
+        if(!newName) return;
+        await sb.from('ps_teams').update({ name:newName }).eq('id', e.target.dataset.id);
+      });
+    });
+    el.querySelectorAll('button[data-remove]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        await sb.from('ps_teams').delete().eq('id', btn.dataset.remove);
+      });
+    });
+  }
+  renderManualScoreRows();
+}
+
+document.getElementById('addTeamBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  if(teams.length>=10) return;
+  const name = `Lag ${teams.length+1}`;
+  await sb.from('ps_teams').insert({ name, score:0, sort_order: teams.length+1 });
+});
+
+function renderManualScoreRows(){
+  const el = document.getElementById('manualScoreRows');
+  if(!isAdmin){ el.innerHTML=''; return; }
+  el.innerHTML = teams.map(t=>`
+    <div class="team-row">
+      <span style="flex:1; font-weight:600;">${escapeHtml(t.name)}</span>
+      <span style="font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:20px; width:50px; text-align:center;">${t.score||0}</span>
+      <button type="button" data-id="${t.id}" data-d="-5" style="width:auto; padding:0 10px;">−5</button>
+      <button type="button" data-id="${t.id}" data-d="-1" style="width:auto; padding:0 10px;">−1</button>
+      <button type="button" data-id="${t.id}" data-d="1" style="width:auto; padding:0 10px;">+1</button>
+      <button type="button" data-id="${t.id}" data-d="5" style="width:auto; padding:0 10px;">+5</button>
+    </div>`).join('');
+  el.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=> adjustScore(b.dataset.id, parseInt(b.dataset.d,10)));
+  });
+}
+
+/* ---------------- RESOR TAB (editor) ---------------- */
+function renderResorTab(){
+  document.getElementById('resorLocked').classList.toggle('hidden', isAdmin);
+  document.getElementById('resorAdmin').classList.toggle('hidden', !isAdmin);
+  if(isAdmin) renderJourneyAdmin();
+}
+
+function renderClueEditor(clues){
+  const list = document.getElementById('clueEditorList');
+  list.innerHTML = "";
+  clues.forEach((c,i)=> list.appendChild(clueRow(c,i)));
+  updateScalePreview();
+}
+function clueRow(text, i){
+  const row = document.createElement('div');
+  row.className = 'clue-editor-row';
+  row.innerHTML = `<span class="cnum">${i+1}</span>
+    <textarea rows="2" placeholder="Ledtråd ${i+1}...">${escapeHtml(text||"")}</textarea>
+    <button type="button" title="Ta bort ledtråd">✕</button>`;
+  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberClues(); updateScalePreview(); });
+  row.querySelector('textarea').addEventListener('input', updateScalePreview);
+  return row;
+}
+function renumberClues(){
+  document.querySelectorAll('#clueEditorList .clue-editor-row').forEach((row,i)=> row.querySelector('.cnum').textContent = i+1);
+}
+document.getElementById('addClueBtn').addEventListener('click', ()=>{
+  const list = document.getElementById('clueEditorList');
+  list.appendChild(clueRow("", list.children.length));
+  updateScalePreview();
+});
+function updateScalePreview(){
+  const start = parseInt(document.getElementById('jStart').value,10) || 0;
+  const step = parseInt(document.getElementById('jStep').value,10) || 0;
+  const n = document.querySelectorAll('#clueEditorList .clue-editor-row').length || 0;
+  const vals = [];
+  for(let i=0;i<n;i++) vals.push(Math.max(1, start - step*i));
+  document.getElementById('scalePreview').innerHTML = n ? `Poängskala: <b>${vals.join(' → ')}</b>` : `Lägg till ledtrådar för att se poängskalan.`;
+}
+document.getElementById('jStart').addEventListener('input', updateScalePreview);
+document.getElementById('jStep').addEventListener('input', updateScalePreview);
+
+function clearForm(){
+  editingId = null;
+  document.getElementById('editorHeading').textContent = 'Ny resa';
+  document.getElementById('jTitle').value = '';
+  document.getElementById('jAnswer').value = '';
+  document.getElementById('jStart').value = 20;
+  document.getElementById('jStep').value = 4;
+  renderClueEditor(["","",""]);
+}
+document.getElementById('clearFormBtn').addEventListener('click', clearForm);
+
+document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const title = document.getElementById('jTitle').value.trim() || 'Namnlös resa';
+  const answer = document.getElementById('jAnswer').value.trim();
+  const start_points = parseInt(document.getElementById('jStart').value,10) || 20;
+  const step = parseInt(document.getElementById('jStep').value,10) || 0;
+  const clues = [...document.querySelectorAll('#clueEditorList textarea')].map(t=>t.value.trim()).filter(Boolean);
+
+  if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
+  if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
+
+  if(editingId){
+    await sb.from('ps_journeys').update({ title, answer, start_points, step, clues, revealed:0, is_done:false }).eq('id', editingId);
+  } else {
+    await sb.from('ps_journeys').insert({ title, answer, start_points, step, clues, sort_order: journeys.length+1 });
+  }
+  clearForm();
+});
+
+function renderJourneyAdmin(){
+  document.getElementById('journeyCount').textContent = journeys.length;
+  const el = document.getElementById('journeyListAdmin');
+  if(!journeys.length){ el.innerHTML = `<p class="help">Inga resor ännu — skapa en ovan.</p>`; return; }
+  el.innerHTML = journeys.map(j=>`
+    <div class="jl-row">
+      <div class="jl-info">
+        <b>${escapeHtml(j.title)}</b>
+        <div>${j.clues.length} ledtrådar · svar: ${escapeHtml(j.answer)} · poäng ${j.start_points}→${Math.max(1, j.start_points-j.step*(j.clues.length-1))} ${j.is_done? '· ✅ spelad' : ''}</div>
+      </div>
+      <div class="jl-actions">
+        <button class="btn btn-ghost btn-sm" data-edit="${j.id}">Redigera</button>
+        <button class="btn btn-red btn-sm" data-del="${j.id}">Ta bort</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> loadJourneyIntoForm(b.dataset.edit)));
+  el.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', async ()=>{
+    if(confirm('Ta bort den här resan?')) await sb.from('ps_journeys').delete().eq('id', b.dataset.del);
+  }));
+}
+function loadJourneyIntoForm(id){
+  const j = journeys.find(x=>x.id===id);
+  if(!j) return;
+  editingId = id;
+  document.getElementById('editorHeading').textContent = 'Redigera: ' + j.title;
+  document.getElementById('jTitle').value = j.title;
+  document.getElementById('jAnswer').value = j.answer;
+  document.getElementById('jStart').value = j.start_points;
+  document.getElementById('jStep').value = j.step;
+  renderClueEditor(j.clues);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ---------------- SPELA TAB ---------------- */
+function renderLibrary(){
+  const playingId = gameState.current_journey_id;
+  const showLibrary = !playingId;
+  document.getElementById('library').classList.toggle('hidden', !showLibrary);
+  document.getElementById('playView').classList.toggle('hidden', showLibrary);
+  document.getElementById('libraryHelp').textContent = isAdmin
+    ? 'Klicka på ett kort för att starta den resan. Avklarade resor går att spela om.'
+    : 'Väntar på att admin startar en resa…';
+
+  const el = document.getElementById('journeyGrid');
+  if(!journeys.length){ el.innerHTML = `<p class="help">Inga resor skapade än.</p>`; return; }
+  el.innerHTML = journeys.map(j=>`
+    <div class="journey-card ${j.is_done?'done':''}" data-open="${j.id}">
+      <div class="jc-top">
+        <div class="jc-title">${escapeHtml(j.title)}</div>
+        <div class="jc-status">${j.is_done ? 'Spelad' : 'Redo'}</div>
+      </div>
+      <div class="jc-meta">${j.clues.length} ledtrådar · start ${j.start_points}p</div>
+    </div>`).join('');
+  el.querySelectorAll('[data-open]').forEach(c=> c.addEventListener('click', ()=> openJourney(c.dataset.open)));
+}
+
+async function openJourney(id){
+  if(!requireAdmin()) return;
+  currentOut = new Set();
+  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
+  await sb.from('ps_game_state').update({ current_journey_id:id, updated_at:new Date().toISOString() }).eq('id',1);
+}
+
+function currentJourney(){
+  return journeys.find(j=>j.id===gameState.current_journey_id) || null;
+}
+
+function renderPlayView(){
+  const j = currentJourney();
+  document.getElementById('adminPlayActions').classList.toggle('hidden', !isAdmin);
+  document.getElementById('teamPlaySection').classList.toggle('hidden', !isAdmin);
+  if(!j){ return; }
+
+  document.getElementById('playTag').textContent = j.title;
+  document.getElementById('playPoints').textContent = pointsForClue(j, Math.max(0,j.revealed-1)) + 'p';
+
+  renderRoute(j);
+  renderClueLog(j);
+
+  document.getElementById('nextClueBtn').disabled = j.revealed >= j.clues.length;
+  document.getElementById('nextClueBtn').textContent = j.revealed >= j.clues.length ? 'Sista ledtråden visad' : 'Nästa ledtråd →';
+
+  if(j.is_done && j.answer){
+    document.getElementById('answerBox').classList.remove('hidden');
+    document.getElementById('answerText').textContent = j.answer;
+  } else {
+    document.getElementById('answerBox').classList.add('hidden');
+  }
+
+  if(isAdmin) renderTeamPlayGrid(j);
+}
+
+function renderRoute(j){
+  const n = j.clues.length;
+  const route = document.getElementById('route');
+  const active = j.revealed - 1;
+  let html = `<div class="route-stops">`;
+  for(let i=0;i<n;i++){
+    let cls = 'stop';
+    if(i < active) cls += ' passed';
+    if(i === active) cls += ' active';
+    html += `<div class="${cls}">${i+1}</div>`;
+  }
+  html += `</div>`;
+  const pct = active < 0 ? 4 : ((active + 0.5) / n) * 100;
+  html += `<div class="train-icon" style="left:${pct}%;">🚂</div>`;
+  route.innerHTML = html;
+}
+
+function renderClueLog(j){
+  const el = document.getElementById('clueLog');
+  if(j.revealed === 0){ el.innerHTML = `<div class="empty-hint">Klicka "Nästa ledtråd" för att avslöja den första.</div>`; return; }
+  el.innerHTML = j.clues.slice(0, j.revealed).map((c,i)=>
+    `<div class="clue-item"><span class="cn">Ledtråd ${i+1}</span>${escapeHtml(c)}</div>`
+  ).join('');
+}
+
+document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const j = currentJourney();
+  if(!j || j.revealed >= j.clues.length) return;
+  await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
+});
+
+function renderTeamPlayGrid(j){
+  const el = document.getElementById('teamPlayGrid');
+  const awarded = j.is_done;
+  el.innerHTML = teams.map(t=>`
+    <div class="team-play-card ${currentOut.has(t.id)?'out':''}">
+      <div class="tp-name"><span class="${currentOut.has(t.id)?'strike':''}">${escapeHtml(t.name)}</span><span style="color:var(--gold-bright); font-family:'Anton',sans-serif;">${t.score||0}</span></div>
+      <div class="tp-btns">
+        <button class="tp-correct" data-id="${t.id}" ${awarded ? 'disabled':''}>✅ Rätt</button>
+        <button class="tp-wrong" data-id="${t.id}" ${(currentOut.has(t.id)||awarded) ? 'disabled':''}>❌ Fel</button>
+      </div>
+    </div>`).join('');
+  el.querySelectorAll('.tp-correct').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.id)));
+  el.querySelectorAll('.tp-wrong').forEach(b=> b.addEventListener('click', ()=>{ currentOut.add(b.dataset.id); renderTeamPlayGrid(currentJourney()); }));
+}
+
+async function awardCorrect(teamId){
+  if(!requireAdmin()) return;
+  const j = currentJourney();
+  const t = teams.find(x=>x.id===teamId);
+  if(!j || !t) return;
+  const idx = Math.max(0, j.revealed - 1);
+  const pts = pointsForClue(j, idx);
+  await sb.from('ps_teams').update({ score:(t.score||0)+pts }).eq('id', teamId);
+  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
+}
+
+document.getElementById('revealAnsBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const j = currentJourney();
+  if(!j) return;
+  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
+});
+
+document.getElementById('resetJourneyBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const j = currentJourney();
+  if(!j) return;
+  if(!confirm('Nollställa denna resa (ledtrådar & status)? Redan tilldelade poäng dras inte tillbaka automatiskt.')) return;
+  currentOut = new Set();
+  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
+});
+
+document.getElementById('backToLibrary').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  currentOut = new Set();
+  await sb.from('ps_game_state').update({ current_journey_id:null, updated_at:new Date().toISOString() }).eq('id',1);
+});
+
+/* ---------------- INIT ---------------- */
+(async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  isAdmin = !!session;
+  updateAuthUI();
+  clearForm();
+  await refetchAll();
+})();
+</script>
+</body>
+</html>
