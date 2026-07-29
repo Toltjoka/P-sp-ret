@@ -485,13 +485,12 @@
 const SUPABASE_URL = 'https://fajtxhxwvnuhfkytdcqi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhanR4aHh3dm51aGZreXRkY3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NTk3NjMsImV4cCI6MjA5OTMzNTc2M30.b7rMbVl_56fbRSESVO8HT5XuGoeshtY4jozfZ9T8Aqg';
 
-const memoryStorage = (() => {
-  let store = {};
-  return { getItem:k=>(k in store?store[k]:null), setItem:(k,v)=>{store[k]=v;}, removeItem:k=>{delete store[k];} };
-})();
-
+// Persist the admin session in real localStorage: this page now runs as a
+// standalone site on GitHub Pages (not inside the Claude artifact sandbox),
+// so it's safe to use real browser storage — and it's what stops the
+// "logged out on every reload/deploy" problem.
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { storage: memoryStorage, persistSession: true, autoRefreshToken: true }
+  auth: { storage: window.localStorage, persistSession: true, autoRefreshToken: true }
 });
 
 /* ---------------- STATE ---------------- */
