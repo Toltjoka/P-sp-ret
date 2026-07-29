@@ -252,15 +252,23 @@
   .url-with-picker input{flex:1;}
   .pick-btn{background:var(--charcoal); border:1px solid rgba(255,182,18,.4); color:var(--gold-bright); border-radius:7px; width:36px; height:36px; flex-shrink:0; cursor:pointer; font-size:15px;}
   .pick-btn:hover{background:rgba(255,182,18,.15);}
-  .option-row{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
-  .option-row .opt-letter{font-family:'Space Mono',monospace; color:var(--gold-bright); width:22px; flex-shrink:0;}
-  .option-row input{flex:1;}
-  .option-row button{background:transparent; border:1px solid rgba(200,16,46,.5); color:#e28b83; width:32px; height:32px; border-radius:7px; cursor:pointer; flex-shrink:0;}
+  .part-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:8px; background:rgba(0,0,0,.15); padding:10px; border-radius:10px;}
+  .part-row .opt-letter{font-family:'Space Mono',monospace; color:var(--gold-bright); width:20px; padding-top:10px; flex-shrink:0;}
+  .part-row .part-fields{flex:1; display:flex; flex-direction:column; gap:6px;}
+  .part-row .part-fields .part-sub{display:flex; gap:8px;}
+  .part-row .part-fields .part-sub input{flex:1;}
+  .part-row .pts-mini{width:64px; flex-shrink:0;}
+  .part-row button{background:transparent; border:1px solid rgba(200,16,46,.5); color:#e28b83; width:32px; height:32px; border-radius:7px; cursor:pointer; flex-shrink:0;}
   .mc-answer-grid{display:grid; grid-template-columns:1fr; gap:10px; max-width:420px; margin:16px auto;}
   .mc-answer-btn{background:var(--charcoal); border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:10px; padding:14px 16px; font-size:15px; font-weight:600; cursor:pointer; text-align:left; display:flex; gap:10px; align-items:center;}
   .mc-answer-btn .opt-letter{color:var(--gold-bright); font-family:'Space Mono',monospace;}
   .mc-answer-btn:hover{border-color:var(--gold-bright);}
   .mc-answer-btn.selected{border-color:var(--green-ok); background:rgba(26,143,76,.15);}
+  .part-answer-row{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .part-answer-row .opt-letter{font-family:'Space Mono',monospace; color:var(--gold-bright); width:20px; flex-shrink:0;}
+  .part-answer-row input{flex:1;}
+  .award-custom{display:flex; align-items:center; gap:6px;}
+  .award-custom input{width:55px; text-align:center;}
 
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
@@ -506,11 +514,11 @@
 
         <label>Frågetyp</label>
         <select id="bqType" style="margin-bottom:14px;">
-          <option value="text">Fritext (spelarna skriver eget svar)</option>
-          <option value="multiple_choice">Flerval (A/B/C…)</option>
+          <option value="text">Fritext (en fråga, ett svar)</option>
+          <option value="multi_part">Flerdelad (A, B, C… — varje del har eget svar och egna poäng)</option>
         </select>
 
-        <label>Fråga</label>
+        <label>Fråga / rubrik</label>
         <textarea id="bqPrompt" rows="2" placeholder="T.ex. Vilken spelare hade flest touchdowns i NFL 2025?" style="margin-bottom:12px;"></textarea>
         <label>Bild- eller video-URL (valfritt)</label>
         <div class="url-with-picker" style="margin-bottom:12px;">
@@ -518,13 +526,14 @@
           <button type="button" class="pick-btn" id="bqMediaPick" title="Välj från biblioteket">🖼️</button>
         </div>
 
-        <div id="bqOptionsWrap" class="hidden">
-          <label>Svarsalternativ</label>
-          <div id="bqOptionsList"></div>
-          <button class="btn btn-ghost btn-sm" id="bqAddOptionBtn" type="button" style="margin-bottom:14px;">+ Lägg till alternativ</button>
+        <div id="bqPartsWrap" class="hidden">
+          <label>Delfrågor — varje del har egen text, eget facit och egna poäng</label>
+          <div id="bqPartsList"></div>
+          <button class="btn btn-ghost btn-sm" id="bqAddPartBtn" type="button" style="margin-bottom:14px;">+ Lägg till delfråga</button>
+          <p class="help" style="margin-top:-8px;">Poängen ni delar ut styr ni själva i svarslistan efteråt — sätt gärna poäng per del bara som riktmärke (t.ex. båda rätt = mer än summan).</p>
         </div>
 
-        <div class="form-grid">
+        <div class="form-grid" id="bqSimpleFieldsWrap">
           <div><label id="bqAnswerLabel">Facit (valfritt, bara för er)</label><input type="text" id="bqAnswer"></div>
           <div><label>Poäng</label><input type="number" id="bqPoints" value="5" min="1"></div>
         </div>
@@ -961,8 +970,8 @@ function renderVisning(){
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     document.getElementById('visningSub').textContent = 'Mellanfråga';
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
-    const optsHtml = (q && q.question_type==='multiple_choice')
-      ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:420px;">${(q.options||[]).map((o,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+i)}</b> — ${escapeHtml(o)}</div>`).join('')}</div>`
+    const optsHtml = (q && q.question_type==='multi_part')
+      ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+i)}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
       : '';
     stageEl.innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
@@ -1191,20 +1200,44 @@ function activeBonusSiblings(){
   return bonusQuestions.filter(x=>x.journey_id===q.journey_id).sort((a,b)=>a.sort_order-b.sort_order);
 }
 
+function formatBonusAnswerDisplay(q, a){
+  if(q && q.question_type==='multi_part'){
+    let parsed = {};
+    try{ parsed = JSON.parse(a.answer_text||'{}'); }catch(e){}
+    return (q.parts||[]).map((p,i)=>{
+      const letter = String.fromCharCode(65+i);
+      const given = parsed[letter] || '(inget svar)';
+      return `<div style="margin-bottom:4px;">${letter}) ${escapeHtml(p.prompt)}${p.answer?` <span style="color:var(--muted);">— facit: ${escapeHtml(p.answer)}</span>`:''}<br><span style="color:var(--gold-bright);">→ ${escapeHtml(given)}</span></div>`;
+    }).join('');
+  }
+  return escapeHtml(a.answer_text||'');
+}
+function awardRowHTML(teamId, defaultPoints){
+  return `<div class="award-custom">
+    <input type="number" class="award-amt" value="${defaultPoints}" min="0">
+    <button class="btn btn-gold btn-sm" data-awardcustom="${teamId}">Ge poäng</button>
+  </div>`;
+}
+function wireAwardButtons(container){
+  container.querySelectorAll('[data-awardcustom]').forEach(b=> b.addEventListener('click', async ()=>{
+    const row = b.closest('.jl-row');
+    const amt = parseInt(row.querySelector('.award-amt').value,10) || 0;
+    await applyScoreChange(b.dataset.awardcustom, amt, 'Mellanfråga');
+  }));
+}
+
 function renderBonusControl(){
   const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
-  document.getElementById('bonusControlPrompt').textContent = q ? (q.question_type==='multiple_choice' ? q.prompt + '  [' + (q.options||[]).map((o,i)=>String.fromCharCode(65+i)+': '+o).join(' · ') + ']' : q.prompt) : '';
+  document.getElementById('bonusControlPrompt').textContent = q ? q.prompt : '';
   const el = document.getElementById('bonusControlAnswers');
   if(!bonusAnswers.length){ el.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
   else {
     el.innerHTML = bonusAnswers.map(a=>{
       const t = teams.find(x=>x.id===a.team_id);
-      return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${escapeHtml(a.answer_text||'')}</div></div>
-        <div class="jl-actions"><button class="btn btn-gold btn-sm" data-award="${a.team_id}" data-pts="${q?q.points:5}">+${q?q.points:5}p</button></div></div>`;
+      return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${formatBonusAnswerDisplay(q,a)}</div></div>
+        <div class="jl-actions">${awardRowHTML(a.team_id, q?q.points:5)}</div></div>`;
     }).join('');
-    el.querySelectorAll('[data-award]').forEach(b=> b.addEventListener('click', async ()=>{
-      await applyScoreChange(b.dataset.award, parseInt(b.dataset.pts,10), 'Mellanfråga');
-    }));
+    wireAwardButtons(el);
   }
   const siblings = activeBonusSiblings();
   const idx = siblings.findIndex(x=>x.id===gameState.active_bonus_question_id);
@@ -1425,34 +1458,41 @@ function populateBqJourneySelect(){
   if(current && journeys.some(j=>j.id===current)) sel.value = current;
 }
 
-function renderOptionEditor(options){
-  const list = document.getElementById('bqOptionsList');
+function renderPartsEditor(parts){
+  const list = document.getElementById('bqPartsList');
   list.innerHTML = '';
-  (options && options.length ? options : ['','']).forEach((opt,i)=> list.appendChild(optionRow(opt,i)));
+  (parts && parts.length ? parts : [{prompt:'',answer:'',points:1},{prompt:'',answer:'',points:1}]).forEach((p,i)=> list.appendChild(partRow(p,i)));
 }
-function optionRow(text, i){
+function partRow(part, i){
+  const p = part || {prompt:'',answer:'',points:1};
   const row = document.createElement('div');
-  row.className = 'option-row';
+  row.className = 'part-row';
   row.innerHTML = `<span class="opt-letter">${String.fromCharCode(65+i)}</span>
-    <input type="text" class="opt-input" placeholder="Alternativ ${String.fromCharCode(65+i)}" value="${escapeHtml(text||'')}">
-    <button type="button" title="Ta bort alternativ">✕</button>`;
-  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberOptions(); });
+    <div class="part-fields">
+      <input type="text" class="part-prompt" placeholder="Delfråga ${String.fromCharCode(65+i)} — t.ex. Vem gjorde flest mål?" value="${escapeHtml(p.prompt||'')}">
+      <div class="part-sub">
+        <input type="text" class="part-answer" placeholder="Facit för denna del (valfritt)" value="${escapeHtml(p.answer||'')}">
+        <input type="number" class="part-points pts-mini" placeholder="Poäng" value="${p.points ?? 1}" min="0">
+      </div>
+    </div>
+    <button type="button" title="Ta bort delfråga">✕</button>`;
+  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberParts(); });
   return row;
 }
-function renumberOptions(){
-  document.querySelectorAll('#bqOptionsList .option-row').forEach((row,i)=>{
+function renumberParts(){
+  document.querySelectorAll('#bqPartsList .part-row').forEach((row,i)=>{
     row.querySelector('.opt-letter').textContent = String.fromCharCode(65+i);
-    row.querySelector('.opt-input').placeholder = `Alternativ ${String.fromCharCode(65+i)}`;
+    row.querySelector('.part-prompt').placeholder = `Delfråga ${String.fromCharCode(65+i)} — t.ex. Vem gjorde flest mål?`;
   });
 }
-document.getElementById('bqAddOptionBtn').addEventListener('click', ()=>{
-  const list = document.getElementById('bqOptionsList');
-  list.appendChild(optionRow('', list.children.length));
+document.getElementById('bqAddPartBtn').addEventListener('click', ()=>{
+  const list = document.getElementById('bqPartsList');
+  list.appendChild(partRow({prompt:'',answer:'',points:1}, list.children.length));
 });
 document.getElementById('bqType').addEventListener('change', e=>{
-  const isMc = e.target.value === 'multiple_choice';
-  document.getElementById('bqOptionsWrap').classList.toggle('hidden', !isMc);
-  document.getElementById('bqAnswerLabel').textContent = isMc ? 'Rätt alternativ (valfritt, bara för er)' : 'Facit (valfritt, bara för er)';
+  const isMulti = e.target.value === 'multi_part';
+  document.getElementById('bqPartsWrap').classList.toggle('hidden', !isMulti);
+  document.getElementById('bqSimpleFieldsWrap').classList.toggle('hidden', isMulti);
 });
 
 function clearBqForm(){
@@ -1460,13 +1500,13 @@ function clearBqForm(){
   document.getElementById('bqEditorHeading').textContent = 'Ny mellanfråga';
   populateBqJourneySelect();
   document.getElementById('bqType').value = 'text';
-  document.getElementById('bqOptionsWrap').classList.add('hidden');
-  document.getElementById('bqAnswerLabel').textContent = 'Facit (valfritt, bara för er)';
+  document.getElementById('bqPartsWrap').classList.add('hidden');
+  document.getElementById('bqSimpleFieldsWrap').classList.remove('hidden');
   document.getElementById('bqPrompt').value = '';
   document.getElementById('bqMedia').value = '';
   document.getElementById('bqAnswer').value = '';
   document.getElementById('bqPoints').value = 5;
-  renderOptionEditor([]);
+  renderPartsEditor([]);
 }
 document.getElementById('bqClearBtn').addEventListener('click', clearBqForm);
 
@@ -1478,13 +1518,14 @@ function loadBqIntoForm(id){
   populateBqJourneySelect();
   document.getElementById('bqJourney').value = q.journey_id;
   document.getElementById('bqType').value = q.question_type || 'text';
-  document.getElementById('bqOptionsWrap').classList.toggle('hidden', q.question_type !== 'multiple_choice');
-  document.getElementById('bqAnswerLabel').textContent = q.question_type==='multiple_choice' ? 'Rätt alternativ (valfritt, bara för er)' : 'Facit (valfritt, bara för er)';
+  const isMulti = q.question_type === 'multi_part';
+  document.getElementById('bqPartsWrap').classList.toggle('hidden', !isMulti);
+  document.getElementById('bqSimpleFieldsWrap').classList.toggle('hidden', isMulti);
   document.getElementById('bqPrompt').value = q.prompt;
   document.getElementById('bqMedia').value = q.media_url || '';
   document.getElementById('bqAnswer').value = q.reference_answer || '';
   document.getElementById('bqPoints').value = q.points;
-  renderOptionEditor(q.options || []);
+  renderPartsEditor(q.parts || []);
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -1496,18 +1537,23 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
   const media_url = document.getElementById('bqMedia').value.trim();
   const reference_answer = document.getElementById('bqAnswer').value.trim();
   const points = parseInt(document.getElementById('bqPoints').value,10) || 5;
-  const options = question_type==='multiple_choice'
-    ? [...document.querySelectorAll('#bqOptionsList .opt-input')].map(i=>i.value.trim()).filter(Boolean)
+  const parts = question_type==='multi_part'
+    ? [...document.querySelectorAll('#bqPartsList .part-row')].map(row=>{
+        const p = row.querySelector('.part-prompt').value.trim();
+        if(!p) return null;
+        return { prompt:p, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1 };
+      }).filter(Boolean)
     : [];
-  if(!prompt){ alert('Skriv en fråga.'); return; }
+  if(!prompt){ alert('Skriv en fråga/rubrik.'); return; }
   if(!journey_id){ alert('Välj vilken resa frågan hör till.'); return; }
-  if(question_type==='multiple_choice' && options.length<2){ alert('Lägg till minst två svarsalternativ.'); return; }
+  if(question_type==='multi_part' && parts.length<2){ alert('Lägg till minst två delfrågor.'); return; }
+  const partsTotal = parts.reduce((s,p)=>s+(p.points||0),0);
 
   if(editingBqId){
-    await sb.from('ps_bonus_questions').update({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points, options }).eq('id', editingBqId);
+    await sb.from('ps_bonus_questions').update({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts }).eq('id', editingBqId);
   } else {
     const siblingCount = bonusQuestions.filter(q=>q.journey_id===journey_id).length;
-    await sb.from('ps_bonus_questions').insert({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points, options, sort_order: siblingCount+1 });
+    await sb.from('ps_bonus_questions').insert({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts, sort_order: siblingCount+1 });
   }
   clearBqForm();
 });
@@ -1529,7 +1575,7 @@ function renderMellanTab(){
       <div class="journey-list-admin">
         ${qs.length ? qs.map(q=>{
           const active = gameState.active_bonus_question_id === q.id;
-          const typeLabel = q.question_type==='multiple_choice' ? `Flerval (${(q.options||[]).length} alt.)` : 'Fritext';
+          const typeLabel = q.question_type==='multi_part' ? `Flerdelad (${(q.parts||[]).length} delar)` : 'Fritext';
           return `<div class="jl-row">
             <div class="jl-info"><b>${escapeHtml(q.prompt)}</b><div>${q.points}p · ${typeLabel} ${q.reference_answer?('· facit: '+escapeHtml(q.reference_answer)):''} ${active?'· 🟢 AKTIV':''}</div></div>
             <div class="jl-actions">
@@ -1559,12 +1605,10 @@ function renderMellanTab(){
     else {
       list.innerHTML = bonusAnswers.map(a=>{
         const t = teams.find(x=>x.id===a.team_id);
-        return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${escapeHtml(a.answer_text||'')}</div></div>
-          <div class="jl-actions"><button class="btn btn-gold btn-sm" data-award="${a.team_id}" data-pts="${q?q.points:5}">+${q?q.points:5}p</button></div></div>`;
+        return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${formatBonusAnswerDisplay(q,a)}</div></div>
+          <div class="jl-actions">${awardRowHTML(a.team_id, q?q.points:5)}</div></div>`;
       }).join('');
-      list.querySelectorAll('[data-award]').forEach(b=> b.addEventListener('click', async ()=>{
-        await applyScoreChange(b.dataset.award, parseInt(b.dataset.pts,10), 'Mellanfråga');
-      }));
+      wireAwardButtons(list);
     }
   } else {
     answersPanel.classList.add('hidden');
@@ -1792,20 +1836,22 @@ function renderSpelare(){
     const mcGrid = document.getElementById('bonusMcGrid');
     const textInput = document.getElementById('bonusAnswerInput');
     const submitBtn = document.getElementById('bonusSubmitBtn');
-    if(q && q.question_type==='multiple_choice'){
+    if(q && q.question_type==='multi_part'){
       mcGrid.classList.remove('hidden');
       textInput.classList.add('hidden');
-      submitBtn.classList.add('hidden');
-      mcGrid.innerHTML = (q.options||[]).map((opt,i)=>{
+      submitBtn.classList.remove('hidden');
+      let already_parsed = {};
+      try{ already_parsed = already ? JSON.parse(already.answer_text||'{}') : {}; }catch(e){}
+      mcGrid.innerHTML = (q.parts||[]).map((p,i)=>{
         const letter = String.fromCharCode(65+i);
-        const selected = already && already.answer_text === opt;
-        return `<button type="button" class="mc-answer-btn ${selected?'selected':''}" data-opt="${escapeHtml(opt)}"><span class="opt-letter">${letter}</span> ${escapeHtml(opt)}</button>`;
+        return `<div class="part-answer-row"><span class="opt-letter">${letter})</span>
+          <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="${escapeHtml(p.prompt)}" value="${escapeHtml(already_parsed[letter]||'')}"></div>`;
       }).join('');
-      mcGrid.querySelectorAll('[data-opt]').forEach(b=> b.addEventListener('click', ()=> submitBonusAnswer(b.dataset.opt)));
     } else {
       mcGrid.classList.add('hidden');
       textInput.classList.remove('hidden');
       submitBtn.classList.remove('hidden');
+      textInput.value = already ? (already.answer_text||'') : '';
     }
     document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan ändras när som helst)' : '';
   } else {
@@ -1828,8 +1874,15 @@ async function submitBonusAnswer(text){
   renderSpelare();
 }
 document.getElementById('bonusSubmitBtn').addEventListener('click', ()=>{
-  const text = document.getElementById('bonusAnswerInput').value.trim();
-  if(text) submitBonusAnswer(text);
+  const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+  if(q && q.question_type==='multi_part'){
+    const answers = {};
+    document.querySelectorAll('.part-answer-input').forEach(inp=>{ answers[inp.dataset.letter] = inp.value.trim(); });
+    submitBonusAnswer(JSON.stringify(answers));
+  } else {
+    const text = document.getElementById('bonusAnswerInput').value.trim();
+    if(text) submitBonusAnswer(text);
+  }
 });
 
 /* ---------------- INIT ---------------- */
