@@ -252,6 +252,15 @@
   .url-with-picker input{flex:1;}
   .pick-btn{background:var(--charcoal); border:1px solid rgba(255,182,18,.4); color:var(--gold-bright); border-radius:7px; width:36px; height:36px; flex-shrink:0; cursor:pointer; font-size:15px;}
   .pick-btn:hover{background:rgba(255,182,18,.15);}
+  .option-row{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
+  .option-row .opt-letter{font-family:'Space Mono',monospace; color:var(--gold-bright); width:22px; flex-shrink:0;}
+  .option-row input{flex:1;}
+  .option-row button{background:transparent; border:1px solid rgba(200,16,46,.5); color:#e28b83; width:32px; height:32px; border-radius:7px; cursor:pointer; flex-shrink:0;}
+  .mc-answer-grid{display:grid; grid-template-columns:1fr; gap:10px; max-width:420px; margin:16px auto;}
+  .mc-answer-btn{background:var(--charcoal); border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:10px; padding:14px 16px; font-size:15px; font-weight:600; cursor:pointer; text-align:left; display:flex; gap:10px; align-items:center;}
+  .mc-answer-btn .opt-letter{color:var(--gold-bright); font-family:'Space Mono',monospace;}
+  .mc-answer-btn:hover{border-color:var(--gold-bright);}
+  .mc-answer-btn.selected{border-color:var(--green-ok); background:rgba(26,143,76,.15);}
 
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
@@ -321,6 +330,7 @@
     <div id="bonusBox" class="bonus-box hidden">
       <div id="bonusMedia"></div>
       <h3 id="bonusPrompt"></h3>
+      <div id="bonusMcGrid" class="mc-answer-grid hidden"></div>
       <textarea id="bonusAnswerInput" rows="2" placeholder="Skriv ert svar..."></textarea>
       <button class="btn btn-gold" id="bonusSubmitBtn" style="width:100%; margin-top:10px;">Skicka svar</button>
       <div class="player-status" id="bonusStatus"></div>
@@ -488,8 +498,18 @@
     </div>
     <div id="mellanAdmin" class="hidden">
       <div class="panel">
-        <h2>Ny mellanfråga</h2>
-        <p class="help">Frågor att köra mellan resorna. Spelarna svarar i text i spelarläget, ni bedömer och delar ut poäng manuellt.</p>
+        <h2 id="bqEditorHeading">Ny mellanfråga</h2>
+        <p class="help">Varje resa har sina egna mellanfrågor som körs direkt efter den resan är klar (5 st som standard, lägg till eller ta bort hur många ni vill).</p>
+
+        <label>Hör till resa</label>
+        <select id="bqJourney" style="margin-bottom:14px;"></select>
+
+        <label>Frågetyp</label>
+        <select id="bqType" style="margin-bottom:14px;">
+          <option value="text">Fritext (spelarna skriver eget svar)</option>
+          <option value="multiple_choice">Flerval (A/B/C…)</option>
+        </select>
+
         <label>Fråga</label>
         <textarea id="bqPrompt" rows="2" placeholder="T.ex. Vilken spelare hade flest touchdowns i NFL 2025?" style="margin-bottom:12px;"></textarea>
         <label>Bild- eller video-URL (valfritt)</label>
@@ -497,15 +517,25 @@
           <input type="text" id="bqMedia" placeholder="https://... (.mp4/.webm = video)">
           <button type="button" class="pick-btn" id="bqMediaPick" title="Välj från biblioteket">🖼️</button>
         </div>
+
+        <div id="bqOptionsWrap" class="hidden">
+          <label>Svarsalternativ</label>
+          <div id="bqOptionsList"></div>
+          <button class="btn btn-ghost btn-sm" id="bqAddOptionBtn" type="button" style="margin-bottom:14px;">+ Lägg till alternativ</button>
+        </div>
+
         <div class="form-grid">
-          <div><label>Facit (valfritt, bara för er)</label><input type="text" id="bqAnswer"></div>
+          <div><label id="bqAnswerLabel">Facit (valfritt, bara för er)</label><input type="text" id="bqAnswer"></div>
           <div><label>Poäng</label><input type="number" id="bqPoints" value="5" min="1"></div>
         </div>
-        <button class="btn btn-gold" id="bqSaveBtn" type="button">Spara fråga</button>
+        <div class="row-actions">
+          <button class="btn btn-gold" id="bqSaveBtn" type="button">Spara fråga</button>
+          <button class="btn btn-ghost" id="bqClearBtn" type="button">Rensa formulär</button>
+        </div>
       </div>
       <div class="panel">
-        <h2>Alla mellanfrågor</h2>
-        <div id="bqList" class="journey-list-admin"></div>
+        <h2>Alla mellanfrågor (<span id="bqCount">0</span>)</h2>
+        <div id="bqList"></div>
       </div>
       <div class="panel hidden" id="bqAnswersPanel">
         <h2>Svar på aktiv fråga</h2>
@@ -931,11 +961,14 @@ function renderVisning(){
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     document.getElementById('visningSub').textContent = 'Mellanfråga';
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
+    const optsHtml = (q && q.question_type==='multiple_choice')
+      ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:420px;">${(q.options||[]).map((o,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+i)}</b> — ${escapeHtml(o)}</div>`).join('')}</div>`
+      : '';
     stageEl.innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
       ${q && q.media_url ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
-      <div class="stage-empty"><div class="title">❓ Mellanfråga</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div></div>
+      <div class="stage-empty"><div class="title">❓ Mellanfråga</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${optsHtml}</div>
     </div>`;
     return;
   }
@@ -1140,19 +1173,27 @@ document.getElementById('backToLibrary').addEventListener('click', async ()=>{
   await sb.from('ps_game_state').update({ current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[] }).eq('id',1);
 });
 
-// End the journey and immediately kick off the first mellanfråga
+// End the journey and immediately kick off its first mellanfråga
 document.getElementById('endJourneyBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  const first = bonusQuestions[0];
+  const justEndedJourneyId = gameState.current_journey_id;
+  const mine = bonusQuestions.filter(q=>q.journey_id===justEndedJourneyId).sort((a,b)=>a.sort_order-b.sort_order);
+  const first = mine[0];
   await sb.from('ps_game_state').update({
     current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
     active_bonus_question_id: first ? first.id : null
   }).eq('id',1);
 });
 
+function activeBonusSiblings(){
+  const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+  if(!q) return [];
+  return bonusQuestions.filter(x=>x.journey_id===q.journey_id).sort((a,b)=>a.sort_order-b.sort_order);
+}
+
 function renderBonusControl(){
   const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
-  document.getElementById('bonusControlPrompt').textContent = q ? q.prompt : '';
+  document.getElementById('bonusControlPrompt').textContent = q ? (q.question_type==='multiple_choice' ? q.prompt + '  [' + (q.options||[]).map((o,i)=>String.fromCharCode(65+i)+': '+o).join(' · ') + ']' : q.prompt) : '';
   const el = document.getElementById('bonusControlAnswers');
   if(!bonusAnswers.length){ el.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
   else {
@@ -1165,13 +1206,15 @@ function renderBonusControl(){
       await applyScoreChange(b.dataset.award, parseInt(b.dataset.pts,10), 'Mellanfråga');
     }));
   }
-  const idx = bonusQuestions.findIndex(x=>x.id===gameState.active_bonus_question_id);
-  document.getElementById('nextBonusBtn').textContent = (idx>=0 && idx<bonusQuestions.length-1) ? 'Nästa fråga →' : 'Klar med mellanfrågor';
+  const siblings = activeBonusSiblings();
+  const idx = siblings.findIndex(x=>x.id===gameState.active_bonus_question_id);
+  document.getElementById('nextBonusBtn').textContent = (idx>=0 && idx<siblings.length-1) ? 'Nästa fråga →' : 'Klar med mellanfrågor';
 }
 document.getElementById('nextBonusBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  const idx = bonusQuestions.findIndex(x=>x.id===gameState.active_bonus_question_id);
-  const next = bonusQuestions[idx+1] || null;
+  const siblings = activeBonusSiblings();
+  const idx = siblings.findIndex(x=>x.id===gameState.active_bonus_question_id);
+  const next = siblings[idx+1] || null;
   await sb.from('ps_game_state').update({ active_bonus_question_id: next ? next.id : null }).eq('id',1);
 });
 document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
@@ -1373,25 +1416,138 @@ document.getElementById('testSoundBtn').addEventListener('click', playBuzzerSoun
 /* ============================================================
    ADMIN: MELLANFRÅGOR TAB
    ============================================================ */
+let editingBqId = null;
+
+function populateBqJourneySelect(){
+  const sel = document.getElementById('bqJourney');
+  const current = sel.value;
+  sel.innerHTML = journeys.map(j=>`<option value="${j.id}">${escapeHtml(j.title)}</option>`).join('');
+  if(current && journeys.some(j=>j.id===current)) sel.value = current;
+}
+
+function renderOptionEditor(options){
+  const list = document.getElementById('bqOptionsList');
+  list.innerHTML = '';
+  (options && options.length ? options : ['','']).forEach((opt,i)=> list.appendChild(optionRow(opt,i)));
+}
+function optionRow(text, i){
+  const row = document.createElement('div');
+  row.className = 'option-row';
+  row.innerHTML = `<span class="opt-letter">${String.fromCharCode(65+i)}</span>
+    <input type="text" class="opt-input" placeholder="Alternativ ${String.fromCharCode(65+i)}" value="${escapeHtml(text||'')}">
+    <button type="button" title="Ta bort alternativ">✕</button>`;
+  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberOptions(); });
+  return row;
+}
+function renumberOptions(){
+  document.querySelectorAll('#bqOptionsList .option-row').forEach((row,i)=>{
+    row.querySelector('.opt-letter').textContent = String.fromCharCode(65+i);
+    row.querySelector('.opt-input').placeholder = `Alternativ ${String.fromCharCode(65+i)}`;
+  });
+}
+document.getElementById('bqAddOptionBtn').addEventListener('click', ()=>{
+  const list = document.getElementById('bqOptionsList');
+  list.appendChild(optionRow('', list.children.length));
+});
+document.getElementById('bqType').addEventListener('change', e=>{
+  const isMc = e.target.value === 'multiple_choice';
+  document.getElementById('bqOptionsWrap').classList.toggle('hidden', !isMc);
+  document.getElementById('bqAnswerLabel').textContent = isMc ? 'Rätt alternativ (valfritt, bara för er)' : 'Facit (valfritt, bara för er)';
+});
+
+function clearBqForm(){
+  editingBqId = null;
+  document.getElementById('bqEditorHeading').textContent = 'Ny mellanfråga';
+  populateBqJourneySelect();
+  document.getElementById('bqType').value = 'text';
+  document.getElementById('bqOptionsWrap').classList.add('hidden');
+  document.getElementById('bqAnswerLabel').textContent = 'Facit (valfritt, bara för er)';
+  document.getElementById('bqPrompt').value = '';
+  document.getElementById('bqMedia').value = '';
+  document.getElementById('bqAnswer').value = '';
+  document.getElementById('bqPoints').value = 5;
+  renderOptionEditor([]);
+}
+document.getElementById('bqClearBtn').addEventListener('click', clearBqForm);
+
+function loadBqIntoForm(id){
+  const q = bonusQuestions.find(x=>x.id===id);
+  if(!q) return;
+  editingBqId = id;
+  document.getElementById('bqEditorHeading').textContent = 'Redigera mellanfråga';
+  populateBqJourneySelect();
+  document.getElementById('bqJourney').value = q.journey_id;
+  document.getElementById('bqType').value = q.question_type || 'text';
+  document.getElementById('bqOptionsWrap').classList.toggle('hidden', q.question_type !== 'multiple_choice');
+  document.getElementById('bqAnswerLabel').textContent = q.question_type==='multiple_choice' ? 'Rätt alternativ (valfritt, bara för er)' : 'Facit (valfritt, bara för er)';
+  document.getElementById('bqPrompt').value = q.prompt;
+  document.getElementById('bqMedia').value = q.media_url || '';
+  document.getElementById('bqAnswer').value = q.reference_answer || '';
+  document.getElementById('bqPoints').value = q.points;
+  renderOptionEditor(q.options || []);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const journey_id = document.getElementById('bqJourney').value;
+  const question_type = document.getElementById('bqType').value;
+  const prompt = document.getElementById('bqPrompt').value.trim();
+  const media_url = document.getElementById('bqMedia').value.trim();
+  const reference_answer = document.getElementById('bqAnswer').value.trim();
+  const points = parseInt(document.getElementById('bqPoints').value,10) || 5;
+  const options = question_type==='multiple_choice'
+    ? [...document.querySelectorAll('#bqOptionsList .opt-input')].map(i=>i.value.trim()).filter(Boolean)
+    : [];
+  if(!prompt){ alert('Skriv en fråga.'); return; }
+  if(!journey_id){ alert('Välj vilken resa frågan hör till.'); return; }
+  if(question_type==='multiple_choice' && options.length<2){ alert('Lägg till minst två svarsalternativ.'); return; }
+
+  if(editingBqId){
+    await sb.from('ps_bonus_questions').update({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points, options }).eq('id', editingBqId);
+  } else {
+    const siblingCount = bonusQuestions.filter(q=>q.journey_id===journey_id).length;
+    await sb.from('ps_bonus_questions').insert({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points, options, sort_order: siblingCount+1 });
+  }
+  clearBqForm();
+});
+
 function renderMellanTab(){
   document.getElementById('mellanLocked').classList.toggle('hidden', isAdmin);
   document.getElementById('mellanAdmin').classList.toggle('hidden', !isAdmin);
   if(!isAdmin) return;
+  if(!editingBqId) populateBqJourneySelect();
+
+  document.getElementById('bqCount').textContent = bonusQuestions.length;
   const el = document.getElementById('bqList');
-  el.innerHTML = bonusQuestions.length ? bonusQuestions.map(q=>{
-    const active = gameState.active_bonus_question_id === q.id;
-    return `<div class="jl-row">
-      <div class="jl-info"><b>${escapeHtml(q.prompt)}</b><div>${q.points}p ${q.reference_answer?('· facit: '+escapeHtml(q.reference_answer)):''} ${active?'· 🟢 AKTIV':''}</div></div>
-      <div class="jl-actions">
-        <button class="btn ${active?'btn-red':'btn-gold'} btn-sm" data-toggle="${q.id}">${active?'Avaktivera':'Aktivera'}</button>
-        <button class="btn btn-red btn-sm" data-delq="${q.id}">Ta bort</button>
+  if(!journeys.length){ el.innerHTML = `<p class="help">Skapa en resa först.</p>`; return; }
+
+  el.innerHTML = journeys.map(j=>{
+    const qs = bonusQuestions.filter(q=>q.journey_id===j.id).sort((a,b)=>a.sort_order-b.sort_order);
+    return `<div style="margin-bottom:18px;">
+      <div class="qtag" style="margin-bottom:8px;">${escapeHtml(j.title)} (${qs.length})</div>
+      <div class="journey-list-admin">
+        ${qs.length ? qs.map(q=>{
+          const active = gameState.active_bonus_question_id === q.id;
+          const typeLabel = q.question_type==='multiple_choice' ? `Flerval (${(q.options||[]).length} alt.)` : 'Fritext';
+          return `<div class="jl-row">
+            <div class="jl-info"><b>${escapeHtml(q.prompt)}</b><div>${q.points}p · ${typeLabel} ${q.reference_answer?('· facit: '+escapeHtml(q.reference_answer)):''} ${active?'· 🟢 AKTIV':''}</div></div>
+            <div class="jl-actions">
+              <button class="btn ${active?'btn-red':'btn-gold'} btn-sm" data-toggle="${q.id}">${active?'Avaktivera':'Aktivera'}</button>
+              <button class="btn btn-ghost btn-sm" data-editq="${q.id}">Redigera</button>
+              <button class="btn btn-red btn-sm" data-delq="${q.id}">Ta bort</button>
+            </div>
+          </div>`;
+        }).join('') : `<p class="help">Inga mellanfrågor för denna resa än.</p>`}
       </div>
     </div>`;
-  }).join('') : `<p class="help">Inga mellanfrågor ännu.</p>`;
+  }).join('');
+
   el.querySelectorAll('[data-toggle]').forEach(b=> b.addEventListener('click', async ()=>{
     const activating = gameState.active_bonus_question_id !== b.dataset.toggle;
     await sb.from('ps_game_state').update({ active_bonus_question_id: activating ? b.dataset.toggle : null }).eq('id',1);
   }));
+  el.querySelectorAll('[data-editq]').forEach(b=> b.addEventListener('click', ()=> loadBqIntoForm(b.dataset.editq)));
   el.querySelectorAll('[data-delq]').forEach(b=> b.addEventListener('click', async ()=>{ if(confirm('Ta bort frågan?')) await sb.from('ps_bonus_questions').delete().eq('id', b.dataset.delq); }));
 
   const answersPanel = document.getElementById('bqAnswersPanel');
@@ -1414,16 +1570,6 @@ function renderMellanTab(){
     answersPanel.classList.add('hidden');
   }
 }
-document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
-  if(!requireAdmin()) return;
-  const prompt = document.getElementById('bqPrompt').value.trim();
-  const reference_answer = document.getElementById('bqAnswer').value.trim();
-  const media_url = document.getElementById('bqMedia').value.trim();
-  const points = parseInt(document.getElementById('bqPoints').value,10) || 5;
-  if(!prompt){ alert('Skriv en fråga.'); return; }
-  await sb.from('ps_bonus_questions').insert({ prompt, reference_answer: reference_answer||null, media_url: media_url||null, points, sort_order: bonusQuestions.length+1 });
-  document.getElementById('bqPrompt').value=''; document.getElementById('bqAnswer').value=''; document.getElementById('bqMedia').value=''; document.getElementById('bqPoints').value=5;
-});
 
 /* ============================================================
    ADMIN: LAG TAB
@@ -1643,7 +1789,25 @@ function renderSpelare(){
     document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
     document.getElementById('bonusMedia').innerHTML = (q && q.media_url) ? `<div style="border-radius:10px; overflow:hidden; margin-bottom:12px; max-height:180px;">${mediaTag(q.media_url,'')}</div>` : '';
     const already = bonusAnswersForMe();
-    document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan skickas igen för att ändra)' : '';
+    const mcGrid = document.getElementById('bonusMcGrid');
+    const textInput = document.getElementById('bonusAnswerInput');
+    const submitBtn = document.getElementById('bonusSubmitBtn');
+    if(q && q.question_type==='multiple_choice'){
+      mcGrid.classList.remove('hidden');
+      textInput.classList.add('hidden');
+      submitBtn.classList.add('hidden');
+      mcGrid.innerHTML = (q.options||[]).map((opt,i)=>{
+        const letter = String.fromCharCode(65+i);
+        const selected = already && already.answer_text === opt;
+        return `<button type="button" class="mc-answer-btn ${selected?'selected':''}" data-opt="${escapeHtml(opt)}"><span class="opt-letter">${letter}</span> ${escapeHtml(opt)}</button>`;
+      }).join('');
+      mcGrid.querySelectorAll('[data-opt]').forEach(b=> b.addEventListener('click', ()=> submitBonusAnswer(b.dataset.opt)));
+    } else {
+      mcGrid.classList.add('hidden');
+      textInput.classList.remove('hidden');
+      submitBtn.classList.remove('hidden');
+    }
+    document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan ändras när som helst)' : '';
   } else {
     bonusBox.classList.add('hidden');
   }
@@ -1656,13 +1820,16 @@ document.getElementById('buzzBtn').addEventListener('click', async ()=>{
   playBuzzerSoundForTeam(myTeam.id);
   await sb.from('ps_game_state').update({ buzzed_team_id: myTeam.id, buzzed_at: new Date().toISOString(), resolved:false }).eq('id',1);
 });
-document.getElementById('bonusSubmitBtn').addEventListener('click', async ()=>{
-  if(!myTeam || !gameState.active_bonus_question_id) return;
-  const text = document.getElementById('bonusAnswerInput').value.trim();
-  if(!text) return;
+async function submitBonusAnswer(text){
+  if(!myTeam || !gameState.active_bonus_question_id || !text) return;
   await sb.from('ps_bonus_answers').upsert({ question_id: gameState.active_bonus_question_id, team_id: myTeam.id, answer_text: text, submitted_at: new Date().toISOString() }, { onConflict:'question_id,team_id' });
   await fetchBonusAnswers();
   document.getElementById('bonusStatus').textContent = 'Svar skickat ✅';
+  renderSpelare();
+}
+document.getElementById('bonusSubmitBtn').addEventListener('click', ()=>{
+  const text = document.getElementById('bonusAnswerInput').value.trim();
+  if(text) submitBonusAnswer(text);
 });
 
 /* ---------------- INIT ---------------- */
@@ -1671,6 +1838,7 @@ document.getElementById('bonusSubmitBtn').addEventListener('click', async ()=>{
   isAdmin = !!session;
   updateAuthUI();
   clearForm();
+  clearBqForm();
   await refetchAll();
   if(currentMode!=='select'){
     ['Select','Visning','Spelare','Admin'].forEach(s=>{
