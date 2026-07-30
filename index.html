@@ -1179,7 +1179,7 @@ function renderTeamPlayGrid(j){
     <div class="team-play-card ${out.has(t.id)?'out':''} ${buzzed===t.id?'buzzed':''}">
       <div class="tp-name"><span class="${out.has(t.id)?'strike':''}">${escapeHtml(t.name)}</span><span style="color:var(--gold-bright); font-family:'Anton',sans-serif;">${t.score||0}</span></div>
       <div class="tp-btns">
-        <button class="tp-correct" data-id="${t.id}" ${j.is_done?'disabled':''}>✅ Rätt</button>
+        <button class="tp-correct" data-id="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>✅ Rätt</button>
         <button class="tp-wrong" data-id="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>❌ Fel</button>
       </div>
     </div>`).join('');
@@ -1187,6 +1187,9 @@ function renderTeamPlayGrid(j){
   el.querySelectorAll('.tp-wrong').forEach(b=> b.addEventListener('click', ()=> markWrong(b.dataset.id)));
 }
 
+// A correct guess claims that point level for this team, but the journey keeps
+// going to the next (lower) clue so other teams can still score too — they just
+// can't claim a level someone already has, and a team can't score twice on one journey.
 async function awardCorrect(teamId){
   if(!requireAdmin()) return;
   const j = currentJourney(); const t = teams.find(x=>x.id===teamId);
@@ -1194,8 +1197,18 @@ async function awardCorrect(teamId){
   const idx = Math.max(0, j.revealed-1);
   const pts = clueOf(j, idx).points;
   await applyScoreChange(teamId, pts, `Resa: ${j.title}`);
-  await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
-  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null }).eq('id',1);
+
+  const out = new Set(gameState.out_teams||[]); out.add(teamId);
+  const everyoneDone = teams.length>0 && teams.every(tm => out.has(tm.id));
+  const canAdvance = j.revealed < j.clues.length;
+  const shouldEnd = everyoneDone || !canAdvance;
+
+  if(shouldEnd){
+    await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
+  } else {
+    await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
+  }
+  await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
 }
 
 // Wrong guess: that team is out for this journey, AND the point level drops —
