@@ -504,7 +504,7 @@
     <div id="mellanAdmin" class="hidden">
       <div class="panel">
         <h2 id="bqEditorHeading">Ny mellanfråga</h2>
-        <p class="help">Varje resa har sina egna mellanfrågor som körs direkt efter den resan är klar (5 st som standard, lägg till eller ta bort hur många ni vill).</p>
+        <p class="help">Varje resa har sina egna mellanfrågor som körs direkt efter den resan är klar (5 st som standard, lägg till eller ta bort hur många ni vill). <b>Flerdelad</b> kan användas på två sätt: antingen som <b>två (eller fler) helt separata frågor</b> ihopklumpade — då skriver du en egen fråga-text på varje del — eller som <b>en gemensam fråga med flera svar</b>, t.ex. "Vilka tre rätter är detta?" i huvudfältet nedan, och sen bara en bild + facit per del utan egen frågetext.</p>
 
         <label>Hör till resa</label>
         <select id="bqJourney" style="margin-bottom:14px;"></select>
@@ -1061,7 +1061,7 @@ function renderVisning(){
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
     const hasPartImages = q && (q.parts||[]).some(p=>p.image);
     const optsHtml = (q && q.question_type==='multi_part')
-      ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+i)}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
+      ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).filter(p=>p.prompt).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+(q.parts||[]).indexOf(p))}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
       : '';
     stageEl.innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
@@ -1351,7 +1351,7 @@ function formatBonusAnswerDisplay(q, a){
     return (q.parts||[]).map((p,i)=>{
       const letter = String.fromCharCode(65+i);
       const given = parsed[letter] || '(inget svar)';
-      return `<div style="margin-bottom:4px;">${letter}) ${escapeHtml(p.prompt)}${p.answer?` <span style="color:var(--muted);">— facit: ${escapeHtml(p.answer)}</span>`:''}<br><span style="color:var(--gold-bright);">→ ${escapeHtml(given)}</span></div>`;
+      return `<div style="margin-bottom:4px;">${letter}) ${escapeHtml(p.prompt || '(bild ovan)')}${p.answer?` <span style="color:var(--muted);">— facit: ${escapeHtml(p.answer)}</span>`:''}<br><span style="color:var(--gold-bright);">→ ${escapeHtml(given)}</span></div>`;
     }).join('');
   }
   return escapeHtml(a.answer_text||'');
@@ -1645,7 +1645,7 @@ function partRow(part, i){
   row.className = 'part-row';
   row.innerHTML = `<span class="opt-letter">${String.fromCharCode(65+i)}</span>
     <div class="part-fields">
-      <input type="text" class="part-prompt" placeholder="Delfråga ${String.fromCharCode(65+i)} — t.ex. Vem gjorde flest mål?" value="${escapeHtml(p.prompt||'')}">
+      <input type="text" class="part-prompt" placeholder="Delfråga ${String.fromCharCode(65+i)} (valfritt om huvudfrågan + bilden räcker, t.ex. tre rätter att gissa)" value="${escapeHtml(p.prompt||'')}">
       <div class="part-sub">
         <input type="text" class="part-answer" placeholder="Facit för denna del (valfritt)" value="${escapeHtml(p.answer||'')}">
         <input type="number" class="part-points pts-mini" placeholder="Poäng" value="${p.points ?? 1}" min="0">
@@ -1670,7 +1670,7 @@ function partRow(part, i){
 function renumberParts(){
   document.querySelectorAll('#bqPartsList .part-row').forEach((row,i)=>{
     row.querySelector('.opt-letter').textContent = String.fromCharCode(65+i);
-    row.querySelector('.part-prompt').placeholder = `Delfråga ${String.fromCharCode(65+i)} — t.ex. Vem gjorde flest mål?`;
+    row.querySelector('.part-prompt').placeholder = `Delfråga ${String.fromCharCode(65+i)} (valfritt om huvudfrågan + bilden räcker)`;
   });
 }
 document.getElementById('bqAddPartBtn').addEventListener('click', ()=>{
@@ -1731,8 +1731,9 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
   const parts = question_type==='multi_part'
     ? [...document.querySelectorAll('#bqPartsList .part-row')].map(row=>{
         const p = row.querySelector('.part-prompt').value.trim();
-        if(!p) return null;
-        return { prompt:p, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1, image: row.querySelector('.part-image').value.trim()||null };
+        const img = row.querySelector('.part-image').value.trim();
+        if(!p && !img) return null; // needs at least a question text OR an image to answer from
+        return { prompt:p||null, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1, image: img||null };
       }).filter(Boolean)
     : [];
   if(!prompt){ alert('Skriv en fråga/rubrik.'); return; }
@@ -2059,7 +2060,7 @@ function renderSpelare(){
         mcGrid.innerHTML = (q.parts||[]).map((p,i)=>{
           const letter = String.fromCharCode(65+i);
           return `<div class="part-answer-row"><span class="opt-letter">${letter})</span>
-            <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="${escapeHtml(p.prompt)}" value="${escapeHtml(already_parsed[letter]||'')}"></div>`;
+            <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="${escapeHtml(p.prompt || 'Ert svar för '+letter)}" value="${escapeHtml(already_parsed[letter]||'')}"></div>`;
         }).join('');
       }
     } else {
