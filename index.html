@@ -339,7 +339,7 @@
     </div>
     <div id="scoreboardPlayer" class="scoreboard"></div>
     <div id="playerJourneyInfo" class="qtag" style="text-align:center; margin-bottom:10px;"></div>
-    <div class="buzzer-wrap">
+    <div class="buzzer-wrap" id="buzzerWrap">
       <button class="buzzer-btn" id="buzzBtn" disabled>GISSA!</button>
       <div class="player-status" id="playerStatus"></div>
     </div>
@@ -998,7 +998,17 @@ function renderVisning(){
   const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
   const stageEl = document.getElementById('visningStage');
 
+  let answerEl = document.getElementById('visningAnswerBox');
+  if(!answerEl){
+    answerEl = document.createElement('div');
+    answerEl.id = 'visningAnswerBox';
+    answerEl.className = 'answer-reveal hidden';
+    answerEl.style.cssText = 'max-width:980px; margin:16px auto 0;';
+    stageEl.after(answerEl);
+  }
+
   if(gameState.finished){
+    answerEl.classList.add('hidden');
     syncAmbientSound(null);
     document.getElementById('visningSub').textContent = 'Spelet är slut!';
     stageEl.dataset.stageKey = 'finished';
@@ -1018,6 +1028,7 @@ function renderVisning(){
   }
 
   if(gameState.active_bonus_question_id){
+    answerEl.classList.add('hidden');
     syncAmbientSound(null);
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     document.getElementById('visningSub').textContent = 'Mellanfråga';
@@ -1037,14 +1048,6 @@ function renderVisning(){
   renderStage(stageEl, j, 'stage-lg');
   renderCountdown('visningStage');
   syncAmbientSound(j);
-  let answerEl = document.getElementById('visningAnswerBox');
-  if(!answerEl){
-    answerEl = document.createElement('div');
-    answerEl.id = 'visningAnswerBox';
-    answerEl.className = 'answer-reveal';
-    answerEl.style.cssText = 'max-width:980px; margin:16px auto 0;';
-    stageEl.after(answerEl);
-  }
   if(j && j.is_done && j.answer){
     answerEl.classList.remove('hidden');
     answerEl.innerHTML = `<div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div>`;
@@ -1928,9 +1931,11 @@ function renderSpelare(){
     btn.disabled = false; statusEl.textContent = 'Tryck om ni vet svaret!';
   }
 
-  // bonus question
+  // bonus question active → hide the buzzer, only the answer box matters here
   const bonusBox = document.getElementById('bonusBox');
+  const buzzerWrap = document.getElementById('buzzerWrap');
   if(gameState.active_bonus_question_id){
+    buzzerWrap.classList.add('hidden');
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     bonusBox.classList.remove('hidden');
     document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
@@ -1943,21 +1948,27 @@ function renderSpelare(){
       mcGrid.classList.remove('hidden');
       textInput.classList.add('hidden');
       submitBtn.classList.remove('hidden');
-      let already_parsed = {};
-      try{ already_parsed = already ? JSON.parse(already.answer_text||'{}') : {}; }catch(e){}
-      mcGrid.innerHTML = (q.parts||[]).map((p,i)=>{
-        const letter = String.fromCharCode(65+i);
-        return `<div class="part-answer-row"><span class="opt-letter">${letter})</span>
-          <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="${escapeHtml(p.prompt)}" value="${escapeHtml(already_parsed[letter]||'')}"></div>`;
-      }).join('');
+      const focusedLetter = document.activeElement && document.activeElement.matches && document.activeElement.matches('.part-answer-input') ? document.activeElement.dataset.letter : null;
+      if(!focusedLetter){
+        let already_parsed = {};
+        try{ already_parsed = already ? JSON.parse(already.answer_text||'{}') : {}; }catch(e){}
+        mcGrid.innerHTML = (q.parts||[]).map((p,i)=>{
+          const letter = String.fromCharCode(65+i);
+          return `<div class="part-answer-row"><span class="opt-letter">${letter})</span>
+            <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="${escapeHtml(p.prompt)}" value="${escapeHtml(already_parsed[letter]||'')}"></div>`;
+        }).join('');
+      }
     } else {
       mcGrid.classList.add('hidden');
       textInput.classList.remove('hidden');
       submitBtn.classList.remove('hidden');
-      textInput.value = already ? (already.answer_text||'') : '';
+      if(document.activeElement !== textInput){
+        textInput.value = already ? (already.answer_text||'') : '';
+      }
     }
     document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan ändras när som helst)' : '';
   } else {
+    buzzerWrap.classList.remove('hidden');
     bonusBox.classList.add('hidden');
   }
 }
