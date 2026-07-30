@@ -1695,6 +1695,11 @@ function updateBqTypeUI(){
   document.getElementById('bqSimpleFieldsWrap').classList.toggle('hidden', isMulti);
   document.getElementById('bqMultiModeWrap').classList.toggle('hidden', !isMulti);
   document.getElementById('bqPartsList').classList.toggle('mode-shared', isMulti && isShared);
+  if(isMulti && isShared){
+    // Wipe any leftover per-part question text so it can't silently get saved
+    // while hidden, or resurface if you switch back to "separate" later.
+    document.querySelectorAll('#bqPartsList .part-prompt').forEach(inp=> inp.value = '');
+  }
 
   if(!isMulti){
     document.getElementById('bqPromptLabel').textContent = 'Fråga / rubrik';
@@ -1763,7 +1768,7 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
         const img = row.querySelector('.part-image').value.trim();
         if(isSeparate && !p) return null; // separate questions each need their own text
         if(!isSeparate && !p && !img && !row.querySelector('.part-answer').value.trim()) return null; // shared: needs at least something to answer
-        return { prompt:p||null, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1, image: img||null };
+        return { prompt: isSeparate ? (p||null) : null, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1, image: img||null };
       }).filter(Boolean)
     : [];
   if(!prompt){ alert(question_type==='multi_part' && multi_mode==='shared' ? 'Skriv den gemensamma frågan.' : 'Skriv en fråga/rubrik.'); return; }
