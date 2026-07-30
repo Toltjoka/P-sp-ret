@@ -269,6 +269,13 @@
   .part-answer-row input{flex:1;}
   .award-custom{display:flex; align-items:center; gap:6px;}
   .award-custom input{width:55px; text-align:center;}
+  .bonus-gallery{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+  .bonus-gallery .gallery-item{flex:1 1 130px; max-width:220px;}
+  .bonus-gallery .gallery-item .letter-tag{font-family:'Space Mono',monospace; font-size:11px; color:var(--gold-bright); border:1px solid var(--gold-bright); border-radius:20px; padding:1px 9px; display:inline-block; margin-bottom:5px;}
+  .bonus-gallery .gallery-item .gimg-wrap{border-radius:10px; overflow:hidden; aspect-ratio:4/3; background:#000;}
+  .bonus-gallery .gallery-item .gimg-wrap img, .bonus-gallery .gallery-item .gimg-wrap video{width:100%; height:100%; object-fit:cover;}
+  .part-img-preview{width:34px; height:34px; border-radius:6px; object-fit:cover; border:1px solid rgba(212,175,55,.3); flex-shrink:0; display:none;}
+  .part-img-preview.show{display:block;}
 
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
@@ -1037,14 +1044,15 @@ function renderVisning(){
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     document.getElementById('visningSub').textContent = q && q.title ? q.title : 'Mellanfråga';
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
+    const hasPartImages = q && (q.parts||[]).some(p=>p.image);
     const optsHtml = (q && q.question_type==='multi_part')
       ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+i)}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
       : '';
     stageEl.innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
-      ${q && q.media_url ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
+      ${(!hasPartImages && q && q.media_url) ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
-      <div class="stage-empty"><div class="title">❓ ${escapeHtml(q && q.title ? q.title : 'Mellanfråga')}</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${optsHtml}</div>
+      <div class="stage-empty"><div class="title">❓ ${escapeHtml(q && q.title ? q.title : 'Mellanfråga')}</div><div class="desc" style="max-width:640px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${hasPartImages ? `<div style="max-width:640px;">${bonusGalleryHTML(q)}</div>` : ''}${optsHtml}</div>
     </div>`;
     return;
   }
@@ -1271,6 +1279,22 @@ function activeBonusSiblings(){
   const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
   if(!q) return [];
   return bonusQuestions.filter(x=>x.journey_id===q.journey_id).sort((a,b)=>a.sort_order-b.sort_order);
+}
+
+// Per-delfråga images (if any) show side by side, labeled A/B/C — used when each
+// sub-question has its own "guess what's in the picture" image. If no part has its
+// own image, fall back to one shared "theme" image for the whole question.
+function bonusGalleryHTML(q){
+  if(!q) return '';
+  const partImgs = (q.parts||[]).map((p,i)=> p.image ? {letter:String.fromCharCode(65+i), url:p.image} : null).filter(Boolean);
+  if(partImgs.length){
+    return `<div class="bonus-gallery">${partImgs.map(g=>`
+      <div class="gallery-item"><span class="letter-tag">${g.letter}</span><div class="gimg-wrap">${mediaTag(g.url,'')}</div></div>`).join('')}</div>`;
+  }
+  if(q.media_url){
+    return `<div style="border-radius:10px; overflow:hidden; margin-bottom:14px; max-height:220px;">${mediaTag(q.media_url,'')}</div>`;
+  }
+  return '';
 }
 
 function formatBonusAnswerDisplay(q, a){
@@ -1557,7 +1581,7 @@ function renderPartsEditor(parts){
   (parts && parts.length ? parts : [{prompt:'',answer:'',points:1},{prompt:'',answer:'',points:1}]).forEach((p,i)=> list.appendChild(partRow(p,i)));
 }
 function partRow(part, i){
-  const p = part || {prompt:'',answer:'',points:1};
+  const p = part || {prompt:'',answer:'',points:1,image:null};
   const row = document.createElement('div');
   row.className = 'part-row';
   row.innerHTML = `<span class="opt-letter">${String.fromCharCode(65+i)}</span>
@@ -1567,9 +1591,21 @@ function partRow(part, i){
         <input type="text" class="part-answer" placeholder="Facit för denna del (valfritt)" value="${escapeHtml(p.answer||'')}">
         <input type="number" class="part-points pts-mini" placeholder="Poäng" value="${p.points ?? 1}" min="0">
       </div>
+      <div class="url-with-picker">
+        <input type="text" class="part-image" placeholder="Bild/video till just denna del (valfritt — t.ex. gissa vem/vad på bilden)" value="${escapeHtml(p.image||'')}">
+        <button type="button" class="pick-btn" title="Välj från biblioteket">🖼️</button>
+      </div>
     </div>
+    <span class="part-img-preview-wrap">${p.image ? mediaTag(p.image,'part-img-preview show') : `<span class="part-img-preview"></span>`}</span>
     <button type="button" title="Ta bort delfråga">✕</button>`;
-  row.querySelector('button').addEventListener('click', ()=>{ row.remove(); renumberParts(); });
+  row.querySelector('button[title="Ta bort delfråga"]').addEventListener('click', ()=>{ row.remove(); renumberParts(); });
+  const imgInput = row.querySelector('.part-image');
+  imgInput.addEventListener('input', ()=>{
+    const wrap = row.querySelector('.part-img-preview-wrap');
+    const v = imgInput.value.trim();
+    wrap.innerHTML = v ? mediaTag(v,'part-img-preview show') : `<span class="part-img-preview"></span>`;
+  });
+  row.querySelector('.pick-btn').addEventListener('click', ()=> openMediaPicker(imgInput));
   return row;
 }
 function renumberParts(){
@@ -1637,7 +1673,7 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
     ? [...document.querySelectorAll('#bqPartsList .part-row')].map(row=>{
         const p = row.querySelector('.part-prompt').value.trim();
         if(!p) return null;
-        return { prompt:p, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1 };
+        return { prompt:p, answer: row.querySelector('.part-answer').value.trim()||null, points: parseInt(row.querySelector('.part-points').value,10) || 1, image: row.querySelector('.part-image').value.trim()||null };
       }).filter(Boolean)
     : [];
   if(!prompt){ alert('Skriv en fråga/rubrik.'); return; }
@@ -1951,7 +1987,7 @@ function renderSpelare(){
     bonusBox.classList.remove('hidden');
     document.getElementById('bonusTitle').textContent = q && q.title ? '❓ ' + q.title : '❓ Mellanfråga';
     document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
-    document.getElementById('bonusMedia').innerHTML = (q && q.media_url) ? `<div style="border-radius:10px; overflow:hidden; margin-bottom:12px; max-height:180px;">${mediaTag(q.media_url,'')}</div>` : '';
+    document.getElementById('bonusMedia').innerHTML = bonusGalleryHTML(q);
     const already = bonusAnswersForMe();
     const mcGrid = document.getElementById('bonusMcGrid');
     const textInput = document.getElementById('bonusAnswerInput');
