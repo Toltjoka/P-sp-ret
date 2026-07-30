@@ -275,6 +275,8 @@
   .bonus-gallery .gallery-item .letter-tag{font-family:'Space Mono',monospace; font-size:11px; color:var(--gold-bright); border:1px solid var(--gold-bright); border-radius:20px; padding:1px 9px; display:inline-block; margin-bottom:5px;}
   .bonus-gallery .gallery-item .gimg-wrap{border-radius:10px; overflow:hidden; aspect-ratio:4/3; background:#000;}
   .bonus-gallery .gallery-item .gimg-wrap img, .bonus-gallery .gallery-item .gimg-wrap video{width:100%; height:100%; object-fit:cover;}
+  .spotify-embed{width:100% !important; height:152px !important; aspect-ratio:auto !important; border:none; border-radius:10px; display:block;}
+  .bonus-gallery .gallery-item .gimg-wrap:has(.spotify-embed){aspect-ratio:auto; height:152px;}
   .part-img-preview{width:34px; height:34px; border-radius:6px; object-fit:cover; border:1px solid rgba(212,175,55,.3); flex-shrink:0; display:none;}
   .part-img-preview.show{display:block;}
 
@@ -529,11 +531,12 @@
 
         <label id="bqPromptLabel">Fråga / rubrik</label>
         <textarea id="bqPrompt" rows="2" placeholder="T.ex. Vilken spelare hade flest touchdowns i NFL 2025?" style="margin-bottom:12px;"></textarea>
-        <label>Bild- eller video-URL (valfritt)</label>
+        <label>Bild-, video- eller Spotify-länk (valfritt)</label>
         <div class="url-with-picker" style="margin-bottom:12px;">
-          <input type="text" id="bqMedia" placeholder="https://... (.mp4/.webm = video)">
+          <input type="text" id="bqMedia" placeholder="https://... (.mp4/.webm = video, open.spotify.com/track/... = spelbar låt)">
           <button type="button" class="pick-btn" id="bqMediaPick" title="Välj från biblioteket">🖼️</button>
         </div>
+        <p class="help" style="margin-top:-8px;">🎵 Klistra in en Spotify-länk (låt, album eller spellista) för en musikfråga — den blir en spelbar widget i spelar- och visningsläget.</p>
 
         <div id="bqPartsWrap" class="hidden">
           <label id="bqPartsLabel">Delfrågor</label>
@@ -722,8 +725,15 @@ let pendingTeamCode = params.get('team') || null;
 
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function isVideoUrl(url){ return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url||'') || /^data:video\//.test(url||''); }
+function spotifyEmbedUrl(url){
+  const m = (url||'').match(/open\.spotify\.com\/(?:embed\/)?(track|album|playlist|episode|show)\/([a-zA-Z0-9]+)/);
+  if(!m) return null;
+  return `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=generator`;
+}
 function mediaTag(url, cls){
   if(!url) return '';
+  const spotify = spotifyEmbedUrl(url);
+  if(spotify) return `<iframe class="${cls} spotify-embed" src="${escapeHtml(spotify)}" frameborder="0" allow="autoplay; encrypted-media; clipboard-write; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
   return isVideoUrl(url)
     ? `<video class="${cls}" src="${escapeHtml(url)}" autoplay muted loop playsinline></video>`
     : `<img class="${cls}" src="${escapeHtml(url)}">`;
