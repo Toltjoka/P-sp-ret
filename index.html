@@ -1002,7 +1002,7 @@ function renderStage(container, j, size, live){
   if(textWrap){
     textWrap.innerHTML = j.revealed>0
       ? `<div class="stage-text"><span class="clue-num">Ledtråd ${idx+1} / ${n}</span><div class="clue-text">${escapeHtml(c.text)}</div></div>`
-      : `<div class="stage-empty"><div class="title">${escapeHtml(j.title)}</div><div class="desc">Redo att avslöja första ledtråden.</div></div>`;
+      : `<div class="stage-empty"><div class="title">${live ? escapeHtml(j.title) : '🚂'}</div><div class="desc">Redo att avslöja första ledtråden.</div></div>`;
   }
 
   const routeEl = container.querySelector('.route-strip');
