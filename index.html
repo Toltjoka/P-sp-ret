@@ -1333,7 +1333,10 @@ function renderResorTab(){
   if(isAdmin){
     renderJourneyAdmin(); renderMediaLibrary();
     if(!editingId) populateJSoundSelect();
-    document.getElementById('buzzerSoundUrl').value = gameState.buzzer_sound_url || '';
+    const soundUrlInput = document.getElementById('buzzerSoundUrl');
+    if(document.activeElement !== soundUrlInput){
+      soundUrlInput.value = gameState.buzzer_sound_url || '';
+    }
   }
 }
 const DEFAULT_SCALE = [10,8,6,4,2,1];
