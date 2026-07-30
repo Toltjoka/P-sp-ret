@@ -345,6 +345,7 @@
     </div>
     <div id="bonusBox" class="bonus-box hidden">
       <div id="bonusMedia"></div>
+      <div class="qtag" id="bonusTitle" style="color:var(--gold-bright); font-size:13px; margin-bottom:4px;"></div>
       <h3 id="bonusPrompt"></h3>
       <div id="bonusMcGrid" class="mc-answer-grid hidden"></div>
       <textarea id="bonusAnswerInput" rows="2" placeholder="Skriv ert svar..."></textarea>
@@ -386,7 +387,7 @@
     </div>
 
     <div id="bonusControl" class="panel hidden">
-      <h2>❓ Mellanfråga pågår</h2>
+      <h2 id="bonusControlHeading">❓ Mellanfråga pågår</h2>
       <p class="help" id="bonusControlPrompt"></p>
       <div id="bonusControlAnswers"></div>
       <div class="row-actions" style="margin-top:14px;">
@@ -523,6 +524,9 @@
 
         <label>Hör till resa</label>
         <select id="bqJourney" style="margin-bottom:14px;"></select>
+
+        <label>Namn på frågan (visas för alla istället för "Mellanfråga")</label>
+        <input type="text" id="bqTitle" placeholder="T.ex. Grillfrågan, Poeten, Rocky-frågan..." style="margin-bottom:14px;">
 
         <label>Frågetyp</label>
         <select id="bqType" style="margin-bottom:14px;">
@@ -1031,7 +1035,7 @@ function renderVisning(){
     answerEl.classList.add('hidden');
     syncAmbientSound(null);
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
-    document.getElementById('visningSub').textContent = 'Mellanfråga';
+    document.getElementById('visningSub').textContent = q && q.title ? q.title : 'Mellanfråga';
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
     const optsHtml = (q && q.question_type==='multi_part')
       ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+i)}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
@@ -1040,7 +1044,7 @@ function renderVisning(){
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
       ${q && q.media_url ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
-      <div class="stage-empty"><div class="title">❓ Mellanfråga</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${optsHtml}</div>
+      <div class="stage-empty"><div class="title">❓ ${escapeHtml(q && q.title ? q.title : 'Mellanfråga')}</div><div class="desc" style="max-width:600px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${optsHtml}</div>
     </div>`;
     return;
   }
@@ -1297,6 +1301,7 @@ function wireAwardButtons(container){
 
 function renderBonusControl(){
   const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+  document.getElementById('bonusControlHeading').textContent = '❓ ' + (q && q.title ? q.title : 'Mellanfråga') + ' pågår';
   document.getElementById('bonusControlPrompt').textContent = q ? q.prompt : '';
   const el = document.getElementById('bonusControlAnswers');
   if(!bonusAnswers.length){ el.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
@@ -1587,6 +1592,7 @@ function clearBqForm(){
   editingBqId = null;
   document.getElementById('bqEditorHeading').textContent = 'Ny mellanfråga';
   populateBqJourneySelect();
+  document.getElementById('bqTitle').value = '';
   document.getElementById('bqType').value = 'text';
   document.getElementById('bqPartsWrap').classList.add('hidden');
   document.getElementById('bqSimpleFieldsWrap').classList.remove('hidden');
@@ -1605,6 +1611,7 @@ function loadBqIntoForm(id){
   document.getElementById('bqEditorHeading').textContent = 'Redigera mellanfråga';
   populateBqJourneySelect();
   document.getElementById('bqJourney').value = q.journey_id;
+  document.getElementById('bqTitle').value = q.title || '';
   document.getElementById('bqType').value = q.question_type || 'text';
   const isMulti = q.question_type === 'multi_part';
   document.getElementById('bqPartsWrap').classList.toggle('hidden', !isMulti);
@@ -1620,6 +1627,7 @@ function loadBqIntoForm(id){
 document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const journey_id = document.getElementById('bqJourney').value;
+  const title = document.getElementById('bqTitle').value.trim();
   const question_type = document.getElementById('bqType').value;
   const prompt = document.getElementById('bqPrompt').value.trim();
   const media_url = document.getElementById('bqMedia').value.trim();
@@ -1634,14 +1642,14 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
     : [];
   if(!prompt){ alert('Skriv en fråga/rubrik.'); return; }
   if(!journey_id){ alert('Välj vilken resa frågan hör till.'); return; }
-  if(question_type==='multi_part' && parts.length<2){ alert('Lägg till minst två delfrågor.'); return; }
+  if(question_type==='multi_part' && parts.length<2){ alert('Lägg till minst två delfrågor (eller byt till Fritext om det bara är en fråga).'); return; }
   const partsTotal = parts.reduce((s,p)=>s+(p.points||0),0);
 
   if(editingBqId){
-    await sb.from('ps_bonus_questions').update({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts }).eq('id', editingBqId);
+    await sb.from('ps_bonus_questions').update({ journey_id, title: title||null, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts }).eq('id', editingBqId);
   } else {
     const siblingCount = bonusQuestions.filter(q=>q.journey_id===journey_id).length;
-    await sb.from('ps_bonus_questions').insert({ journey_id, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts, sort_order: siblingCount+1 });
+    await sb.from('ps_bonus_questions').insert({ journey_id, title: title||null, question_type, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts, sort_order: siblingCount+1 });
   }
   clearBqForm();
 });
@@ -1665,7 +1673,7 @@ function renderMellanTab(){
           const active = gameState.active_bonus_question_id === q.id;
           const typeLabel = q.question_type==='multi_part' ? `Flerdelad (${(q.parts||[]).length} delar)` : 'Fritext';
           return `<div class="jl-row">
-            <div class="jl-info"><b>${escapeHtml(q.prompt)}</b><div>${q.points}p · ${typeLabel} ${q.reference_answer?('· facit: '+escapeHtml(q.reference_answer)):''} ${active?'· 🟢 AKTIV':''}</div></div>
+            <div class="jl-info"><b>${escapeHtml(q.title || q.prompt)}</b><div>${q.title?escapeHtml(q.prompt)+' · ':''}${q.points}p · ${typeLabel} ${q.reference_answer?('· facit: '+escapeHtml(q.reference_answer)):''} ${active?'· 🟢 AKTIV':''}</div></div>
             <div class="jl-actions">
               <button class="btn ${active?'btn-red':'btn-gold'} btn-sm" data-toggle="${q.id}">${active?'Avaktivera':'Aktivera'}</button>
               <button class="btn btn-ghost btn-sm" data-editq="${q.id}">Redigera</button>
@@ -1941,6 +1949,7 @@ function renderSpelare(){
     buzzerWrap.classList.add('hidden');
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     bonusBox.classList.remove('hidden');
+    document.getElementById('bonusTitle').textContent = q && q.title ? '❓ ' + q.title : '❓ Mellanfråga';
     document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
     document.getElementById('bonusMedia').innerHTML = (q && q.media_url) ? `<div style="border-radius:10px; overflow:hidden; margin-bottom:12px; max-height:180px;">${mediaTag(q.media_url,'')}</div>` : '';
     const already = bonusAnswersForMe();
