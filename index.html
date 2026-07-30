@@ -400,6 +400,7 @@
     <div id="bonusControl" class="panel hidden">
       <h2 id="bonusControlHeading">❓ Mellanfråga pågår</h2>
       <p class="help" id="bonusControlPrompt"></p>
+      <div id="bonusControlMedia"></div>
       <div id="bonusControlAnswers"></div>
       <div class="row-actions" style="margin-top:14px;">
         <button class="btn btn-gold" id="nextBonusBtn" type="button">Nästa fråga →</button>
@@ -1080,14 +1081,15 @@ function renderVisning(){
     document.getElementById('visningSub').textContent = q && q.title ? q.title : 'Mellanfråga';
     stageEl.dataset.stageKey = 'bonus'; // force stage rebuild next time a journey plays
     const hasPartImages = q && (q.parts||[]).some(p=>p.image);
+    const bgIsSpotify = q && q.media_url && isSpotifyUrl(q.media_url);
     const optsHtml = (q && q.question_type==='multi_part' && q.multi_mode==='separate')
       ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).filter(p=>p.prompt).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+(q.parts||[]).indexOf(p))}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
       : '';
     stageEl.innerHTML = `<div class="stage stage-lg">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
-      ${(!hasPartImages && q && q.media_url) ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
+      ${(!hasPartImages && q && q.media_url && !bgIsSpotify) ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
-      <div class="stage-empty"><div class="title">❓ ${escapeHtml(q && q.title ? q.title : 'Mellanfråga')}</div><div class="desc" style="max-width:640px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${hasPartImages ? `<div style="max-width:640px;">${bonusGalleryHTML(q)}</div>` : ''}${optsHtml}</div>
+      <div class="stage-empty"><div class="title">❓ ${escapeHtml(q && q.title ? q.title : 'Mellanfråga')}</div><div class="desc" style="max-width:640px; font-size:16px; color:var(--chalk);">${escapeHtml(q ? q.prompt : '')}</div>${(hasPartImages || bgIsSpotify) ? `<div style="max-width:640px;">${bonusGalleryHTML(q, false)}</div>` : ''}${optsHtml}</div>
     </div>`;
     return;
   }
@@ -1351,17 +1353,32 @@ function activeBonusSiblings(){
 // Per-delfråga images (if any) show side by side, labeled A/B/C — used when each
 // sub-question has its own "guess what's in the picture" image. If no part has its
 // own image, fall back to one shared "theme" image for the whole question.
-function bonusGalleryHTML(q){
+function isSpotifyUrl(url){ return !!spotifyEmbedUrl(url); }
+
+// Per-delfråga images (if any) show side by side, labeled A/B/C — used when each
+// sub-question has its own "guess what's in the picture" image. If no part has its
+// own image, fall back to one shared "theme" image for the whole question.
+// Spotify links are hidden from players/visning by default (reveal=false) since the
+// embed widget shows the track name/artist — that would give the answer away. Admin
+// views pass reveal=true to get the real playable widget.
+function bonusGalleryHTML(q, reveal){
   if(!q) return '';
   const partImgs = (q.parts||[]).map((p,i)=> p.image ? {letter:String.fromCharCode(65+i), url:p.image} : null).filter(Boolean);
   if(partImgs.length){
     return `<div class="bonus-gallery">${partImgs.map(g=>`
-      <div class="gallery-item"><span class="letter-tag">${g.letter}</span><div class="gimg-wrap">${mediaTag(g.url,'')}</div></div>`).join('')}</div>`;
+      <div class="gallery-item"><span class="letter-tag">${g.letter}</span><div class="gimg-wrap">${(!reveal && isSpotifyUrl(g.url)) ? spotifyHiddenBox() : mediaTag(g.url,'')}</div></div>`).join('')}</div>`;
   }
   if(q.media_url){
+    if(!reveal && isSpotifyUrl(q.media_url)) return spotifyHiddenBox();
     return `<div style="border-radius:10px; overflow:hidden; margin-bottom:14px; max-height:220px;">${mediaTag(q.media_url,'')}</div>`;
   }
   return '';
+}
+function spotifyHiddenBox(){
+  return `<div style="border-radius:10px; padding:26px 16px; margin-bottom:14px; background:linear-gradient(135deg, rgba(29,185,84,.18), rgba(0,0,0,.25)); border:1px solid rgba(29,185,84,.4); text-align:center;">
+    <div style="font-size:32px; margin-bottom:6px;">🎵</div>
+    <div style="font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.05em; color:var(--muted);">Låten spelas upp — lyssna!</div>
+  </div>`;
 }
 
 function formatBonusAnswerDisplay(q, a){
@@ -1402,6 +1419,7 @@ function renderBonusControl(){
   const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
   document.getElementById('bonusControlHeading').textContent = '❓ ' + (q && q.title ? q.title : 'Mellanfråga') + ' pågår';
   document.getElementById('bonusControlPrompt').textContent = q ? q.prompt : '';
+  document.getElementById('bonusControlMedia').innerHTML = bonusGalleryHTML(q, true);
   const el = document.getElementById('bonusControlAnswers');
   if(!bonusAnswers.length){ el.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
   else {
@@ -2091,7 +2109,7 @@ function renderSpelare(){
     bonusBox.classList.remove('hidden');
     document.getElementById('bonusTitle').textContent = q && q.title ? '❓ ' + q.title : '❓ Mellanfråga';
     document.getElementById('bonusPrompt').textContent = q ? q.prompt : '';
-    document.getElementById('bonusMedia').innerHTML = bonusGalleryHTML(q);
+    document.getElementById('bonusMedia').innerHTML = bonusGalleryHTML(q, false);
     const already = bonusAnswersForMe();
     const mcGrid = document.getElementById('bonusMcGrid');
     const textInput = document.getElementById('bonusAnswerInput');
