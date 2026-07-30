@@ -383,6 +383,7 @@
     <button data-tab="spela" class="active">🚂 Spela</button>
     <button data-tab="resor">✏️ Resor</button>
     <button data-tab="mellan">❓ Mellanfrågor</button>
+    <button data-tab="bibliotek">📚 Bibliotek</button>
     <button data-tab="lag">🏈 Lag & poäng</button>
   </nav>
 
@@ -435,30 +436,6 @@
     </div>
 
     <div id="resorAdmin" class="hidden">
-      <div class="panel" id="mediaLibraryPanel">
-        <h2>🖼️ Mediabibliotek</h2>
-        <p class="help">Ladda upp bilder/videor från din enhet eller klistra in en länk. Sen kan du välja fritt bland dem på resor och mellanfrågor — och byta runt när du vill.</p>
-        <div id="mediaGrid" class="journey-grid" style="margin-bottom:16px;"></div>
-        <div class="form-grid">
-          <div>
-            <label>Ladda upp från enheten</label>
-            <input type="file" id="mediaFileInput" accept="image/*,video/*">
-          </div>
-          <div>
-            <label>Namn</label>
-            <input type="text" id="mediaFileName" placeholder="T.ex. Kansas City skyline">
-          </div>
-        </div>
-        <button class="btn btn-gold" id="mediaUploadBtn" type="button" style="margin-bottom:8px;">⬆️ Ladda upp</button>
-        <div class="modal-err" id="mediaUploadStatus"></div>
-        <hr class="sep">
-        <p class="help" style="margin-bottom:10px;">…eller lägg till en befintlig länk direkt:</p>
-        <div class="form-grid">
-          <div><label>Namn</label><input type="text" id="mediaUrlName"></div>
-          <div><label>URL</label><input type="text" id="mediaUrlUrl" placeholder="https://..."></div>
-        </div>
-        <button class="btn btn-ghost" id="mediaUrlAddBtn" type="button">+ Lägg till länk</button>
-      </div>
 
       <div class="panel">
         <h2 id="editorHeading">Ny resa</h2>
@@ -576,6 +553,59 @@
     </div>
   </section>
 
+  <section id="tab-bibliotek" class="hidden">
+    <div id="bibliotekLocked" class="panel hidden">
+      <h2>Bibliotek</h2>
+      <div class="locked-note">🔒 Logga in som admin för att hantera media och ljud.</div>
+    </div>
+    <div id="bibliotekAdmin" class="hidden">
+      <div class="panel" id="mediaLibraryPanel">
+        <h2>🖼️ Mediabibliotek</h2>
+        <p class="help">Ladda upp bilder/videor från din enhet eller klistra in en länk. Sen kan du välja fritt bland dem på resor och mellanfrågor — och byta runt när du vill.</p>
+        <div id="mediaGrid" class="journey-grid" style="margin-bottom:16px;"></div>
+        <div class="form-grid">
+          <div>
+            <label>Ladda upp från enheten</label>
+            <input type="file" id="mediaFileInput" accept="image/*,video/*">
+          </div>
+          <div>
+            <label>Namn</label>
+            <input type="text" id="mediaFileName" placeholder="T.ex. Kansas City skyline">
+          </div>
+        </div>
+        <button class="btn btn-gold" id="mediaUploadBtn" type="button" style="margin-bottom:8px;">⬆️ Ladda upp</button>
+        <div class="modal-err" id="mediaUploadStatus"></div>
+        <hr class="sep">
+        <p class="help" style="margin-bottom:10px;">…eller lägg till en befintlig länk direkt:</p>
+        <div class="form-grid">
+          <div><label>Namn</label><input type="text" id="mediaUrlName"></div>
+          <div><label>URL</label><input type="text" id="mediaUrlUrl" placeholder="https://..."></div>
+        </div>
+        <button class="btn btn-ghost" id="mediaUrlAddBtn" type="button">+ Lägg till länk</button>
+      </div>
+
+      <div class="panel" id="soundLibraryPanel">
+        <h2>🔊 Ljudbibliotek</h2>
+        <p class="help">Lägg till flera ljud och tilldela ett till varje lag i Lag-fliken, så låter det olika när de trycker.</p>
+        <div id="soundList"></div>
+
+        <div class="form-grid">
+          <div><label>Ladda upp från enheten</label><input type="file" id="sndFileInput" accept="audio/*"></div>
+          <div><label>Namn</label><input type="text" id="sndFileName" placeholder="T.ex. Lag 1-ljud"></div>
+        </div>
+        <button class="btn btn-gold" id="sndUploadBtn" type="button" style="margin-bottom:8px;">⬆️ Ladda upp</button>
+        <div class="modal-err" id="sndUploadStatus"></div>
+        <hr class="sep">
+        <p class="help" style="margin-bottom:10px;">…eller lägg till en befintlig länk direkt:</p>
+        <div class="form-grid">
+          <div><label>Namn</label><input type="text" id="sndName" placeholder="T.ex. Lag 1-ljud"></div>
+          <div><label>Ljud-URL</label><input type="text" id="sndUrl" placeholder="https://... .mp3"></div>
+        </div>
+        <button class="btn btn-ghost" id="sndSaveBtn" type="button">+ Lägg till länk</button>
+      </div>
+    </div>
+  </section>
+
   <section id="tab-lag" class="hidden">
     <div class="panel">
       <h2>Lag</h2>
@@ -596,26 +626,6 @@
         <button class="btn btn-ghost" id="undoPointsBtn" type="button">↩️ Ångra senaste poäng</button>
         <span class="help" id="undoPointsLabel" style="margin:0;"></span>
       </div>
-    </div>
-
-    <div class="panel hidden" id="soundLibraryPanel">
-      <h2>Ljudbibliotek</h2>
-      <p class="help">Lägg till flera ljud och tilldela ett till varje lag ovan, så låter det olika när de trycker.</p>
-      <div id="soundList"></div>
-
-      <div class="form-grid">
-        <div><label>Ladda upp från enheten</label><input type="file" id="sndFileInput" accept="audio/*"></div>
-        <div><label>Namn</label><input type="text" id="sndFileName" placeholder="T.ex. Lag 1-ljud"></div>
-      </div>
-      <button class="btn btn-gold" id="sndUploadBtn" type="button" style="margin-bottom:8px;">⬆️ Ladda upp</button>
-      <div class="modal-err" id="sndUploadStatus"></div>
-      <hr class="sep">
-      <p class="help" style="margin-bottom:10px;">…eller lägg till en befintlig länk direkt:</p>
-      <div class="form-grid">
-        <div><label>Namn</label><input type="text" id="sndName" placeholder="T.ex. Lag 1-ljud"></div>
-        <div><label>Ljud-URL</label><input type="text" id="sndUrl" placeholder="https://... .mp3"></div>
-      </div>
-      <button class="btn btn-ghost" id="sndSaveBtn" type="button">+ Lägg till länk</button>
     </div>
 
     <div class="panel hidden" id="gameControlPanel">
@@ -754,7 +764,7 @@ document.querySelectorAll('.nav button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['spela','resor','mellan','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
+    ['spela','resor','mellan','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
     renderAll();
   });
 });
@@ -851,7 +861,7 @@ sb.channel('ps-live')
 function renderAll(){
   if(currentMode==='admin'){
     renderScoreboardInto('scoreboard', null);
-    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab();
+    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab(); renderBibliotekTab();
   } else if(currentMode==='visning'){
     renderVisning();
   } else if(currentMode==='spelare'){
@@ -888,7 +898,12 @@ async function adjustScore(teamId, delta){
   if(!requireAdmin()) return;
   await applyScoreChange(teamId, delta, null);
 }
+let scoreChangeCooldown = new Set();
 async function applyScoreChange(teamId, delta, note){
+  const key = teamId + '|' + delta + '|' + (note||'');
+  if(scoreChangeCooldown.has(key)) return;
+  scoreChangeCooldown.add(key);
+  setTimeout(()=> scoreChangeCooldown.delete(key), 800);
   const t = teams.find(x=>x.id===teamId);
   if(!t) return;
   await sb.from('ps_teams').update({ score:(t.score||0)+delta }).eq('id', teamId);
@@ -1098,25 +1113,39 @@ function renderLibrary(){
       <div class="jc-meta">${j2.clues.length} ledtrådar · ${clueOf(j2,0).points}p → 1p · ⏱${j2.seconds_per_clue||25}s${j2.video_url?' · 🎥':''}${j2.sound_id?' · 🔊':''}</div>
       <button class="btn btn-gold" data-start="${j2.id}" style="width:100%; margin-top:10px;">▶ Starta resa</button>
     </div>`).join('');
-  el.querySelectorAll('[data-start]').forEach(b=> b.addEventListener('click', e=>{ e.stopPropagation(); startJourney(b.dataset.start); }));
 }
+// Delegated (bound once) instead of rebound on every render, so a re-render mid-tap
+// can't cause the button to "eat" the first click.
+document.getElementById('journeyGrid').addEventListener('click', e=>{
+  const btn = e.target.closest('[data-start]');
+  if(!btn) return;
+  e.stopPropagation();
+  startJourney(btn.dataset.start);
+});
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
+let startingJourney = false;
 async function startJourney(id){
   if(!requireAdmin()) return;
-  await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
-  await sb.from('ps_game_state').update({
-    current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[],
-    active_bonus_question_id:null, countdown:3
-  }).eq('id',1);
-  await sleep(1000);
-  await sb.from('ps_game_state').update({ countdown:2 }).eq('id',1);
-  await sleep(1000);
-  await sb.from('ps_game_state').update({ countdown:1 }).eq('id',1);
-  await sleep(1000);
-  await sb.from('ps_game_state').update({ countdown:null }).eq('id',1);
-  await sb.from('ps_journeys').update({ revealed:1 }).eq('id', id);
+  if(startingJourney) return;
+  startingJourney = true;
+  try{
+    await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
+    await sb.from('ps_game_state').update({
+      current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[],
+      active_bonus_question_id:null, countdown:3
+    }).eq('id',1);
+    await sleep(1000);
+    await sb.from('ps_game_state').update({ countdown:2 }).eq('id',1);
+    await sleep(1000);
+    await sb.from('ps_game_state').update({ countdown:1 }).eq('id',1);
+    await sleep(1000);
+    await sb.from('ps_game_state').update({ countdown:null }).eq('id',1);
+    await sb.from('ps_journeys').update({ revealed:1 }).eq('id', id);
+  } finally {
+    startingJourney = false;
+  }
 }
 
 function currentJourney(){ return journeys.find(j=>j.id===gameState.current_journey_id) || null; }
@@ -1206,15 +1235,24 @@ function renderTeamPlayGrid(j){
         <button class="tp-wrong" data-id="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>❌ Fel</button>
       </div>
     </div>`).join('');
-  el.querySelectorAll('.tp-correct').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.id)));
-  el.querySelectorAll('.tp-wrong').forEach(b=> b.addEventListener('click', ()=> markWrong(b.dataset.id)));
 }
+// Delegated once — a mid-tap re-render used to occasionally "eat" the first click.
+document.getElementById('teamPlayGrid').addEventListener('click', e=>{
+  const correctBtn = e.target.closest('.tp-correct');
+  if(correctBtn && !correctBtn.disabled){ awardCorrect(correctBtn.dataset.id); return; }
+  const wrongBtn = e.target.closest('.tp-wrong');
+  if(wrongBtn && !wrongBtn.disabled){ markWrong(wrongBtn.dataset.id); }
+});
 
 // A correct guess claims that point level for this team, but the journey keeps
 // going to the next (lower) clue so other teams can still score too — they just
 // can't claim a level someone already has, and a team can't score twice on one journey.
+let judgingGuess = false;
 async function awardCorrect(teamId){
   if(!requireAdmin()) return;
+  if(judgingGuess) return;
+  judgingGuess = true;
+  try{
   const j = currentJourney(); const t = teams.find(x=>x.id===teamId);
   if(!j || !t) return;
   const idx = Math.max(0, j.revealed-1);
@@ -1232,17 +1270,26 @@ async function awardCorrect(teamId){
     await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
   }
   await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
+  } finally {
+    judgingGuess = false;
+  }
 }
 
 // Wrong guess: that team is out for this journey, AND the point level drops —
 // everyone else has to wait for the next (lower) clue before they can buzz again.
 async function markWrong(teamId){
   if(!requireAdmin()) return;
-  const j = currentJourney(); if(!j) return;
-  const out = new Set(gameState.out_teams||[]); out.add(teamId);
-  const canAdvance = j.revealed < j.clues.length;
-  if(canAdvance) await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
-  await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
+  if(judgingGuess) return;
+  judgingGuess = true;
+  try{
+    const j = currentJourney(); if(!j) return;
+    const out = new Set(gameState.out_teams||[]); out.add(teamId);
+    const canAdvance = j.revealed < j.clues.length;
+    if(canAdvance) await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
+    await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
+  } finally {
+    judgingGuess = false;
+  }
 }
 
 document.getElementById('revealAnsBtn').addEventListener('click', async ()=>{
@@ -1315,13 +1362,21 @@ function awardRowHTML(teamId, defaultPoints){
     <button class="btn btn-gold btn-sm" data-awardcustom="${teamId}">Ge poäng</button>
   </div>`;
 }
-function wireAwardButtons(container){
-  container.querySelectorAll('[data-awardcustom]').forEach(b=> b.addEventListener('click', async ()=>{
-    const row = b.closest('.jl-row');
+// Delegated once per container — avoids the "have to press twice" issue where a
+// re-render mid-tap replaces the button before the click can register.
+function bindAwardDelegation(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.addEventListener('click', async e=>{
+    const btn = e.target.closest('[data-awardcustom]');
+    if(!btn) return;
+    const row = btn.closest('.jl-row');
     const amt = parseInt(row.querySelector('.award-amt').value,10) || 0;
-    await applyScoreChange(b.dataset.awardcustom, amt, 'Mellanfråga');
-  }));
+    await applyScoreChange(btn.dataset.awardcustom, amt, 'Mellanfråga');
+  });
 }
+bindAwardDelegation('bonusControlAnswers');
+bindAwardDelegation('bqAnswersList');
 
 function renderBonusControl(){
   const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
@@ -1335,7 +1390,6 @@ function renderBonusControl(){
       return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${formatBonusAnswerDisplay(q,a)}</div></div>
         <div class="jl-actions">${awardRowHTML(a.team_id, q?q.points:5)}</div></div>`;
     }).join('');
-    wireAwardButtons(el);
   }
   const siblings = activeBonusSiblings();
   const idx = siblings.findIndex(x=>x.id===gameState.active_bonus_question_id);
@@ -1360,7 +1414,7 @@ function renderResorTab(){
   document.getElementById('resorLocked').classList.toggle('hidden', isAdmin);
   document.getElementById('resorAdmin').classList.toggle('hidden', !isAdmin);
   if(isAdmin){
-    renderJourneyAdmin(); renderMediaLibrary();
+    renderJourneyAdmin();
     if(!editingId) populateJSoundSelect();
     const soundUrlInput = document.getElementById('buzzerSoundUrl');
     if(document.activeElement !== soundUrlInput){
@@ -1452,6 +1506,11 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   }
   clearForm();
 });
+function renderBibliotekTab(){
+  document.getElementById('bibliotekLocked').classList.toggle('hidden', isAdmin);
+  document.getElementById('bibliotekAdmin').classList.toggle('hidden', !isAdmin);
+  if(isAdmin){ renderMediaLibrary(); renderSoundLibrary(); }
+}
 function renderMediaLibrary(){
   const el = document.getElementById('mediaGrid');
   if(!media.length){ el.innerHTML = `<p class="help">Inget media uppladdat än.</p>`; return; }
@@ -1740,7 +1799,6 @@ function renderMellanTab(){
         return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${formatBonusAnswerDisplay(q,a)}</div></div>
           <div class="jl-actions">${awardRowHTML(a.team_id, q?q.points:5)}</div></div>`;
       }).join('');
-      wireAwardButtons(list);
     }
   } else {
     answersPanel.classList.add('hidden');
@@ -1753,7 +1811,6 @@ function renderMellanTab(){
 function renderTeamsTab(){
   document.getElementById('addTeamBtn').classList.toggle('hidden', !isAdmin);
   document.getElementById('manualScorePanel').classList.toggle('hidden', !isAdmin);
-  document.getElementById('soundLibraryPanel').classList.toggle('hidden', !isAdmin);
   document.getElementById('gameControlPanel').classList.toggle('hidden', !isAdmin);
   document.getElementById('passwordPanel').classList.toggle('hidden', !isAdmin);
   document.getElementById('teamCountRow').classList.toggle('hidden', !isAdmin);
@@ -1763,7 +1820,7 @@ function renderTeamsTab(){
   }
   const el = document.getElementById('teamRows');
   const focusedNameInput = document.activeElement && document.activeElement.matches && document.activeElement.matches('#teamRows input[data-id]') ? document.activeElement.dataset.id : null;
-  if(focusedNameInput){ renderManualScoreRows(); renderSoundLibrary(); return; } // don't yank the field out from under an active edit
+  if(focusedNameInput){ renderManualScoreRows(); return; } // don't yank the field out from under an active edit
   el.innerHTML = teams.map((t,i)=>`
     <div class="team-row">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
@@ -1792,7 +1849,6 @@ function renderTeamsTab(){
     }));
   }
   renderManualScoreRows();
-  renderSoundLibrary();
 }
 function renderSoundLibrary(){
   if(!isAdmin) return;
