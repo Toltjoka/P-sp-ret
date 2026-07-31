@@ -280,9 +280,15 @@
   .mc-answer-btn .opt-letter{color:var(--gold-bright); font-family:'Space Mono',monospace;}
   .mc-answer-btn:hover{border-color:var(--gold-bright);}
   .mc-answer-btn.selected{border-color:var(--green-ok); background:rgba(26,143,76,.15);}
-  .part-answer-row{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
-  .part-answer-row .opt-letter{font-family:'Space Mono',monospace; color:var(--gold-bright); width:20px; flex-shrink:0;}
+  .part-answer-row{display:flex; align-items:flex-start; gap:8px; margin-bottom:10px;}
+  .part-answer-row .opt-letter{font-family:'Space Mono',monospace; color:var(--gold-bright); width:20px; flex-shrink:0; padding-top:9px;}
   .part-answer-row input{flex:1;}
+  .part-fields-play{flex:1; display:flex; flex-direction:column; gap:5px;}
+  .pla-q{font-size:13px; color:var(--muted); text-align:left;}
+  .part-answer-row.locked{background:rgba(76,154,106,.1); border:1px solid rgba(76,154,106,.3); border-radius:10px; padding:10px 12px;}
+  .part-locked-ans{flex:1; text-align:left;}
+  .part-locked-ans .pla-q{margin-bottom:2px;}
+  .part-locked-ans .pla-a{font-weight:700; color:var(--chalk);}
   .award-custom{display:flex; align-items:center; gap:6px;}
   .award-custom input{width:55px; text-align:center;}
   .bonus-gallery{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
@@ -440,8 +446,16 @@
       <div id="bonusControlMedia"></div>
       <div id="bonusControlAnswers"></div>
       <div class="row-actions" style="margin-top:14px;">
-        <button class="btn btn-gold" id="nextBonusBtn" type="button">Nästa fråga →</button>
+        <button class="btn btn-gold" id="nextBonusBtn" type="button">Visa resultat →</button>
         <button class="btn btn-ghost" id="endBonusBtn" type="button">Avsluta mellanfrågor</button>
+      </div>
+    </div>
+
+    <div id="bonusResults" class="panel hidden">
+      <h2>📊 Resultat: <span id="brHeading"></span></h2>
+      <div id="brList"></div>
+      <div class="row-actions" style="margin-top:14px;">
+        <button class="btn btn-gold" id="brContinueBtn" type="button">Fortsätt →</button>
       </div>
     </div>
 
@@ -1131,6 +1145,29 @@ function renderVisning(){
     return;
   }
 
+  if(gameState.bonus_result_question_id){
+    answerEl.classList.add('hidden');
+    syncAmbientSound(null);
+    const q = bonusQuestions.find(x=>x.id===gameState.bonus_result_question_id);
+    document.getElementById('visningSub').textContent = 'Resultat';
+    stageEl.dataset.stageKey = 'bonusresult';
+    renderScoreboardInto('scoreboardVisning', null);
+    sbEl.classList.remove('hidden');
+    const rows = teams.map(t=>{
+      const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===(q?q.id:null));
+      const pts = a && a.pending_points!=null ? a.pending_points : 0;
+      return `<div style="background:rgba(255,255,255,.06); border-radius:10px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; gap:14px;">
+        <b>${escapeHtml(t.name)}</b><span style="color:var(--gold-bright); font-family:'Anton',sans-serif; font-size:20px;">+${pts}p</span></div>`;
+    }).join('');
+    stageEl.innerHTML = `<div class="stage stage-full">
+      <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+      <div class="glass"></div>
+      <div class="stage-empty"><div class="title">📊 ${escapeHtml(q && q.title ? q.title : 'Resultat')}</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px; max-width:480px; width:100%;">${rows}</div></div>
+    </div>`;
+    return;
+  }
+
   if(gameState.active_bonus_question_id){
     answerEl.classList.add('hidden');
     syncAmbientSound(null);
@@ -1167,11 +1204,13 @@ function renderVisning(){
    ============================================================ */
 function renderLibrary(){
   const j = currentJourney();
-  const showBonus = !j && gameState.active_bonus_question_id;
-  const showLibrary = !j && !showBonus;
+  const showResults = !j && gameState.bonus_result_question_id;
+  const showBonus = !j && !showResults && gameState.active_bonus_question_id;
+  const showLibrary = !j && !showBonus && !showResults;
   document.getElementById('library').classList.toggle('hidden', !showLibrary);
   document.getElementById('playView').classList.toggle('hidden', !j);
   document.getElementById('bonusControl').classList.toggle('hidden', !showBonus);
+  document.getElementById('bonusResults').classList.toggle('hidden', !showResults);
 
   if(gameState.finished){
     const max = teams.length ? Math.max(...teams.map(t=>t.score||0)) : 0;
@@ -1181,6 +1220,7 @@ function renderLibrary(){
     document.getElementById('libraryHelp').textContent = 'Klicka "Starta resa" för att köra den.';
   }
 
+  if(showResults){ renderBonusResults(); return; }
   if(showBonus){ renderBonusControl(); return; }
   if(!showLibrary) return;
 
@@ -1213,7 +1253,7 @@ async function startJourney(id){
     await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
     await sb.from('ps_game_state').update({
       current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[],
-      active_bonus_question_id:null, countdown:3
+      active_bonus_question_id:null, bonus_result_question_id:null, countdown:3
     }).eq('id',1);
     await sleep(1000);
     await sb.from('ps_game_state').update({ countdown:2 }).eq('id',1);
@@ -1410,7 +1450,7 @@ document.getElementById('endJourneyBtn').addEventListener('click', async ()=>{
   const first = mine[0];
   await sb.from('ps_game_state').update({
     current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
-    active_bonus_question_id: first ? first.id : null
+    active_bonus_question_id: first ? first.id : null, bonus_result_question_id: null
   }).eq('id',1);
 });
 
@@ -1423,14 +1463,10 @@ function activeBonusSiblings(){
 // Per-delfråga images (if any) show side by side, labeled A/B/C — used when each
 // sub-question has its own "guess what's in the picture" image. If no part has its
 // own image, fall back to one shared "theme" image for the whole question.
-function isSpotifyUrl(url){ return !!spotifyEmbedUrl(url); }
-
-// Per-delfråga images (if any) show side by side, labeled A/B/C — used when each
-// sub-question has its own "guess what's in the picture" image. If no part has its
-// own image, fall back to one shared "theme" image for the whole question.
 // Spotify links are hidden from players/visning by default (reveal=false) since the
 // embed widget shows the track name/artist — that would give the answer away. Admin
 // views pass reveal=true to get the real playable widget.
+function isSpotifyUrl(url){ return !!spotifyEmbedUrl(url); }
 function bonusGalleryHTML(q, reveal){
   if(!q) return '';
   const partImgs = (q.parts||[]).map((p,i)=> p.image ? {letter:String.fromCharCode(65+i), url:p.image} : null).filter(Boolean);
@@ -1463,11 +1499,20 @@ function formatBonusAnswerDisplay(q, a){
   }
   return escapeHtml(a.answer_text||'');
 }
-function awardRowHTML(teamId, defaultPoints){
-  return `<div class="award-custom">
-    <input type="number" class="award-amt" value="${defaultPoints}" min="0">
-    <button class="btn btn-gold btn-sm" data-awardcustom="${teamId}">Ge poäng</button>
-  </div>`;
+
+// Points given here are STAGED (pending_points) — not applied to the real scoreboard
+// until admin clicks "Visa resultat →", so nobody sees scores change mid-question.
+function bonusRowsHTML(q){
+  return teams.map(t=>{
+    const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===(q?q.id:null));
+    const answerDisplay = a ? formatBonusAnswerDisplay(q,a) : `<span style="color:var(--muted); font-style:italic;">Inget svar inskickat</span>`;
+    const staged = a && a.pending_points!=null;
+    const actionsHtml = staged
+      ? `<span style="color:var(--green-ok); font-weight:700; font-family:'Anton',sans-serif; font-size:16px;">✅ ${a.pending_points}p</span>
+         <button class="btn btn-ghost btn-sm" data-undopending="${a.id}">Ångra</button>`
+      : (a ? `<div class="award-custom"><input type="number" class="award-amt" value="${q?q.points:5}" min="0"><button class="btn btn-gold btn-sm" data-stagepoints="${a.id}">Ge poäng</button></div>` : '');
+    return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t.name)}</b><div>${answerDisplay}</div></div><div class="jl-actions">${actionsHtml}</div></div>`;
+  }).join('');
 }
 // Delegated once per container — avoids the "have to press twice" issue where a
 // re-render mid-tap replaces the button before the click can register.
@@ -1475,11 +1520,17 @@ function bindAwardDelegation(containerId){
   const el = document.getElementById(containerId);
   if(!el) return;
   el.addEventListener('click', async e=>{
-    const btn = e.target.closest('[data-awardcustom]');
-    if(!btn) return;
-    const row = btn.closest('.jl-row');
-    const amt = parseInt(row.querySelector('.award-amt').value,10) || 0;
-    await applyScoreChange(btn.dataset.awardcustom, amt, 'Mellanfråga');
+    const stageBtn = e.target.closest('[data-stagepoints]');
+    if(stageBtn){
+      const row = stageBtn.closest('.jl-row');
+      const amt = parseInt(row.querySelector('.award-amt').value,10) || 0;
+      await sb.from('ps_bonus_answers').update({ pending_points: amt }).eq('id', stageBtn.dataset.stagepoints);
+      return;
+    }
+    const undoBtn = e.target.closest('[data-undopending]');
+    if(undoBtn){
+      await sb.from('ps_bonus_answers').update({ pending_points: null }).eq('id', undoBtn.dataset.undopending);
+    }
   });
 }
 bindAwardDelegation('bonusControlAnswers');
@@ -1491,28 +1542,44 @@ function renderBonusControl(){
   document.getElementById('bonusControlPrompt').textContent = q ? q.prompt : '';
   document.getElementById('bonusControlMedia').innerHTML = bonusGalleryHTML(q, true);
   const el = document.getElementById('bonusControlAnswers');
-  if(!bonusAnswers.length){ el.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
-  else {
-    el.innerHTML = bonusAnswers.map(a=>{
-      const t = teams.find(x=>x.id===a.team_id);
-      return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${formatBonusAnswerDisplay(q,a)}</div></div>
-        <div class="jl-actions">${awardRowHTML(a.team_id, q?q.points:5)}</div></div>`;
-    }).join('');
-  }
-  const siblings = activeBonusSiblings();
-  const idx = siblings.findIndex(x=>x.id===gameState.active_bonus_question_id);
-  document.getElementById('nextBonusBtn').textContent = (idx>=0 && idx<siblings.length-1) ? 'Nästa fråga →' : 'Klar med mellanfrågor';
+  const focusedAmt = document.activeElement && document.activeElement.matches && document.activeElement.matches('#bonusControlAnswers .award-amt');
+  if(!focusedAmt) el.innerHTML = bonusRowsHTML(q);
 }
 document.getElementById('nextBonusBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  const siblings = activeBonusSiblings();
-  const idx = siblings.findIndex(x=>x.id===gameState.active_bonus_question_id);
-  const next = siblings[idx+1] || null;
-  await sb.from('ps_game_state').update({ active_bonus_question_id: next ? next.id : null }).eq('id',1);
+  const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
+  if(!q) return;
+  const staged = bonusAnswers.filter(a=>a.question_id===q.id && a.pending_points!=null);
+  for(const a of staged){
+    await applyScoreChange(a.team_id, a.pending_points, `Mellanfråga: ${q.title||''}`);
+  }
+  await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:q.id }).eq('id',1);
 });
 document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ active_bonus_question_id:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null }).eq('id',1);
+});
+
+function renderBonusResults(){
+  const q = bonusQuestions.find(x=>x.id===gameState.bonus_result_question_id);
+  document.getElementById('brHeading').textContent = q && q.title ? q.title : 'Mellanfråga';
+  document.getElementById('brList').innerHTML = teams.map(t=>{
+    const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===(q?q.id:null));
+    const pts = a && a.pending_points!=null ? a.pending_points : 0;
+    return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t.name)}</b><div>${a?formatBonusAnswerDisplay(q,a):'Inget svar'}</div></div>
+      <div class="jl-actions" style="text-align:right;">
+        <div style="color:var(--gold-bright); font-family:'Anton',sans-serif; font-size:18px;">+${pts}p</div>
+        <div style="color:var(--muted); font-size:11px;">${t.score||0}p totalt</div>
+      </div></div>`;
+  }).join('');
+}
+document.getElementById('brContinueBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const finishedQ = bonusQuestions.find(x=>x.id===gameState.bonus_result_question_id);
+  const siblings = finishedQ ? bonusQuestions.filter(x=>x.journey_id===finishedQ.journey_id).sort((a,b)=>a.sort_order-b.sort_order) : [];
+  const idx = finishedQ ? siblings.findIndex(x=>x.id===finishedQ.id) : -1;
+  const next = idx>=0 ? (siblings[idx+1] || null) : null;
+  await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: next ? next.id : null }).eq('id',1);
 });
 
 /* ============================================================
@@ -2053,7 +2120,7 @@ function renderMellanTab(){
 
   el.querySelectorAll('[data-toggle]').forEach(b=> b.addEventListener('click', async ()=>{
     const activating = gameState.active_bonus_question_id !== b.dataset.toggle;
-    await sb.from('ps_game_state').update({ active_bonus_question_id: activating ? b.dataset.toggle : null }).eq('id',1);
+    await sb.from('ps_game_state').update({ active_bonus_question_id: activating ? b.dataset.toggle : null, bonus_result_question_id: null }).eq('id',1);
   }));
   el.querySelectorAll('[data-editq]').forEach(b=> b.addEventListener('click', ()=> loadBqIntoForm(b.dataset.editq)));
   el.querySelectorAll('[data-delq]').forEach(b=> b.addEventListener('click', async ()=>{ if(confirm('Ta bort frågan?')) await sb.from('ps_bonus_questions').delete().eq('id', b.dataset.delq); }));
@@ -2063,14 +2130,8 @@ function renderMellanTab(){
     answersPanel.classList.remove('hidden');
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
     const list = document.getElementById('bqAnswersList');
-    if(!bonusAnswers.length){ list.innerHTML = `<p class="help">Inga svar inskickade än.</p>`; }
-    else {
-      list.innerHTML = bonusAnswers.map(a=>{
-        const t = teams.find(x=>x.id===a.team_id);
-        return `<div class="jl-row"><div class="jl-info"><b>${escapeHtml(t?t.name:'Okänt lag')}</b><div>${formatBonusAnswerDisplay(q,a)}</div></div>
-          <div class="jl-actions">${awardRowHTML(a.team_id, q?q.points:5)}</div></div>`;
-      }).join('');
-    }
+    const focusedAmt = document.activeElement && document.activeElement.matches && document.activeElement.matches('#bqAnswersList .award-amt');
+    if(!focusedAmt) list.innerHTML = bonusRowsHTML(q);
   } else {
     answersPanel.classList.add('hidden');
   }
@@ -2209,7 +2270,7 @@ document.getElementById('undoPointsBtn').addEventListener('click', undoLastPoint
 
 document.getElementById('finishGameBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ finished:true, current_journey_id:null, active_bonus_question_id:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ finished:true, current_journey_id:null, active_bonus_question_id:null, bonus_result_question_id:null }).eq('id',1);
 });
 document.getElementById('unfinishGameBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
@@ -2223,7 +2284,7 @@ document.getElementById('resetGameBtn').addEventListener('click', async ()=>{
   await sb.from('ps_bonus_answers').delete().neq('id','00000000-0000-0000-0000-000000000000');
   await sb.from('ps_game_state').update({
     current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
-    active_bonus_question_id:null, countdown:null, finished:false,
+    active_bonus_question_id:null, bonus_result_question_id:null, countdown:null, finished:false,
     last_points_team_id:null, last_points_delta:null, last_points_note:null
   }).eq('id',1);
 });
@@ -2319,29 +2380,45 @@ function renderSpelare(){
     const mcGrid = document.getElementById('bonusMcGrid');
     const textInput = document.getElementById('bonusAnswerInput');
     const submitBtn = document.getElementById('bonusSubmitBtn');
-    if(q && q.question_type==='multi_part'){
+
+    if(already){
+      // Locked: answer already sent, no more editing — but always show what was said.
+      mcGrid.classList.remove('hidden');
+      textInput.classList.add('hidden');
+      submitBtn.classList.add('hidden');
+      if(q && q.question_type==='multi_part'){
+        let parsed = {};
+        try{ parsed = JSON.parse(already.answer_text||'{}'); }catch(e){}
+        mcGrid.innerHTML = (q.parts||[]).map((p,i)=>{
+          const letter = String.fromCharCode(65+i);
+          return `<div class="part-answer-row locked"><span class="opt-letter">${letter})</span>
+            <div class="part-locked-ans"><div class="pla-q">${escapeHtml(p.prompt||'')}</div><div class="pla-a">${escapeHtml(parsed[letter]||'(inget svar)')}</div></div></div>`;
+        }).join('');
+      } else {
+        mcGrid.innerHTML = `<div class="part-answer-row locked"><div class="part-locked-ans"><div class="pla-a">${escapeHtml(already.answer_text||'')}</div></div></div>`;
+      }
+      document.getElementById('bonusStatus').textContent = '🔒 Svar skickat — låst tills nästa fråga.';
+    } else if(q && q.question_type==='multi_part'){
       mcGrid.classList.remove('hidden');
       textInput.classList.add('hidden');
       submitBtn.classList.remove('hidden');
       const focusedLetter = document.activeElement && document.activeElement.matches && document.activeElement.matches('.part-answer-input') ? document.activeElement.dataset.letter : null;
       if(!focusedLetter){
-        let already_parsed = {};
-        try{ already_parsed = already ? JSON.parse(already.answer_text||'{}') : {}; }catch(e){}
         mcGrid.innerHTML = (q.parts||[]).map((p,i)=>{
           const letter = String.fromCharCode(65+i);
           return `<div class="part-answer-row"><span class="opt-letter">${letter})</span>
-            <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="${escapeHtml(p.prompt || 'Ert svar för '+letter)}" value="${escapeHtml(already_parsed[letter]||'')}"></div>`;
+            <div class="part-fields-play">${p.prompt ? `<div class="pla-q">${escapeHtml(p.prompt)}</div>` : ''}
+            <input type="text" class="part-answer-input" data-letter="${letter}" placeholder="Skriv svar..." value=""></div></div>`;
         }).join('');
       }
+      document.getElementById('bonusStatus').textContent = '';
     } else {
       mcGrid.classList.add('hidden');
       textInput.classList.remove('hidden');
       submitBtn.classList.remove('hidden');
-      if(document.activeElement !== textInput){
-        textInput.value = already ? (already.answer_text||'') : '';
-      }
+      if(document.activeElement !== textInput){ textInput.value = ''; }
+      document.getElementById('bonusStatus').textContent = '';
     }
-    document.getElementById('bonusStatus').textContent = already ? 'Svar skickat ✅ (kan ändras när som helst)' : '';
   } else {
     buzzerWrap.classList.remove('hidden');
     bonusBox.classList.add('hidden');
