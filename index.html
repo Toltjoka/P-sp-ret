@@ -1016,7 +1016,10 @@ function renderStage(container, j, size, live){
   const n = j.clues.length;
 
   const ptsEl = container.querySelector('.stage-points');
-  if(ptsEl) ptsEl.textContent = pts + 'p';
+  if(ptsEl){
+    if(live){ ptsEl.textContent = pts + 'p'; ptsEl.style.display=''; }
+    else { ptsEl.style.display = 'none'; }
+  }
 
   if(!arrived && !j.video_url){
     const photoWrap = container.querySelector('.stage-photo');
