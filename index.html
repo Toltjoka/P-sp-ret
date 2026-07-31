@@ -1012,7 +1012,7 @@ function renderStage(container, j, size, live){
   const textWrap = container.querySelector('.stage-text-wrap');
   if(textWrap){
     textWrap.innerHTML = j.revealed>0
-      ? `<div class="stage-text"><span class="clue-num">Ledtråd ${idx+1} / ${n}</span><div class="clue-text">${escapeHtml(c.text)}</div></div>`
+      ? `<div class="stage-text"><div class="clue-text">${escapeHtml(c.text)}</div></div>`
       : `<div class="stage-empty"><div class="title">${live ? escapeHtml(j.title) : '🚂'}</div><div class="desc">Redo att avslöja första ledtråden.</div></div>`;
   }
 
