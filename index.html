@@ -2161,6 +2161,7 @@ function renderTeamsTab(){
         ${sounds.map(s=>`<option value="${s.id}" ${t.sound_id===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
       </select>` : ''}
       ${isAdmin ? `<button type="button" data-copy="${escapeHtml(t.join_code||'')}" title="Kopiera kod" style="border-color:rgba(255,182,18,.4); color:var(--gold-bright);">⧉</button>` : ''}
+      ${isAdmin ? `<button type="button" data-regen="${t.id}" title="Ny kod" style="border-color:rgba(255,182,18,.4); color:var(--gold-bright);">🔄</button>` : ''}
       ${isAdmin && teams.length>2 ? `<button type="button" data-remove="${t.id}">✕</button>` : ''}
     </div>`).join('');
   if(isAdmin){
@@ -2172,6 +2173,10 @@ function renderTeamsTab(){
       await sb.from('ps_teams').update({ sound_id: e.target.value || null }).eq('id', e.target.dataset.sound);
     }));
     el.querySelectorAll('button[data-remove]').forEach(btn=> btn.addEventListener('click', async ()=>{ await sb.from('ps_teams').delete().eq('id', btn.dataset.remove); }));
+    el.querySelectorAll('button[data-regen]').forEach(btn=> btn.addEventListener('click', async ()=>{
+      if(!confirm('Ge det här laget en ny kod? Den gamla koden slutar fungera direkt.')) return;
+      await sb.from('ps_teams').update({ join_code: genCode() }).eq('id', btn.dataset.regen);
+    }));
     el.querySelectorAll('button[data-copy]').forEach(btn=> btn.addEventListener('click', ()=>{
       const code = btn.dataset.copy;
       if(navigator.clipboard){ navigator.clipboard.writeText(code).catch(()=>{}); }
