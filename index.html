@@ -233,7 +233,22 @@
   .bonus-box h3{font-family:'Anton',sans-serif; color:var(--gold-bright); margin:0 0 10px;}
   #bonusMedia img, #bonusMedia video{width:100%; height:100%; object-fit:cover; display:block;}
 
-  #adminStage, #visningStage{position:relative;}
+  .fullscreen-mode{position:fixed; inset:0; background:#000; overflow:hidden; z-index:5;}
+  .fullscreen-mode #visningStage{position:absolute; inset:0;}
+  .stage.stage-full{position:absolute; inset:0; width:100%; height:100%; border:none; border-radius:0; box-shadow:none; margin:0; max-width:none;}
+  .stage.stage-full .rivet, .stage.stage-full .glass{display:none;}
+  .stage.stage-full .stage-points{top:24px; right:24px; width:82px; height:82px; font-size:32px;}
+  .stage.stage-full .stage-text{padding:5vh 6vw 8vh;}
+  .stage.stage-full .stage-text .clue-text{font-size:clamp(24px,4.2vw,48px); line-height:1.25;}
+  .stage.stage-full .stage-empty .title{font-size:clamp(22px,4vw,34px);}
+  .stage.stage-full .route-strip{left:24px; right:24px; bottom:0; height:6px;}
+  .fs-topbar{position:absolute; top:0; left:0; right:0; z-index:9; text-align:center; padding:18px 16px 10px; background:linear-gradient(180deg, rgba(4,20,35,.75), transparent); pointer-events:none;}
+  .fs-topbar span{font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.15em; text-transform:uppercase; color:var(--gold-bright); text-shadow:0 1px 4px rgba(0,0,0,.8);}
+  .scoreboard-overlay{position:absolute; bottom:16px; left:0; right:0; z-index:9; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; pointer-events:none;}
+  .scoreboard-overlay .score-card{background:rgba(8,20,33,.72); backdrop-filter:blur(3px); padding:6px 12px; min-width:auto;}
+  .scoreboard-overlay .score-val{font-size:20px;}
+  .fs-exit{position:absolute; bottom:14px; left:14px; z-index:10; background:rgba(8,20,33,.6); backdrop-filter:blur(3px); font-size:11px; padding:6px 12px; opacity:.55;}
+  .fs-exit:hover{opacity:1;}
   .countdown-overlay{position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:rgba(4,20,35,.78); border-radius:22px;}
   .countdown-overlay .num{font-family:'Anton',sans-serif; font-size:clamp(80px,18vw,180px); color:var(--gold-bright); text-shadow:0 6px 20px rgba(0,0,0,.6); animation:countdownPulse .9s ease;}
   @keyframes countdownPulse{ from{transform:scale(1.5); opacity:0;} to{transform:scale(1); opacity:1;} }
@@ -312,15 +327,11 @@
 </div>
 
 <!-- ===================== VISNINGSLÄGE ===================== -->
-<div id="screenVisning" class="hidden wrap">
-  <header>
-    <div class="eyebrow">Fantasy Football Draft · Special</div>
-    <h1>PÅ <span>SPÅRET</span></h1>
-    <div class="sub" id="visningSub">Draft Express</div>
-  </header>
+<div id="screenVisning" class="hidden fullscreen-mode">
   <div id="visningStage"></div>
-  <div id="scoreboardVisning" class="scoreboard"></div>
-  <div style="text-align:center; margin-top:20px;"><button class="mode-switch" data-back="1">← Byt läge</button></div>
+  <div class="fs-topbar"><span id="visningSub">Draft Express</span></div>
+  <div id="scoreboardVisning" class="scoreboard-overlay"></div>
+  <button class="mode-switch fs-exit" data-back="1">← Byt läge</button>
 </div>
 
 <!-- ===================== SPELARLÄGE ===================== -->
@@ -966,12 +977,6 @@ function stageShell(j, size, arrived){
     <div class="stage-buzz-wrap"></div>
   </div>`;
 }
-function seekJourneyVideo(container, fraction){
-  const v = container.querySelector('video.journey-video');
-  if(!v) return;
-  const doSeek = ()=>{ try{ if(v.duration){ v.currentTime = Math.min(fraction*v.duration, v.duration-0.2); } v.play().catch(()=>{}); }catch(e){} };
-  if(v.readyState >= 1 && v.duration) doSeek(); else v.addEventListener('loadedmetadata', doSeek, {once:true});
-}
 function renderStage(container, j, size, live){
   size = size || 'stage-lg';
   const arrived = !!(j && j.revealed >= j.clues.length);
@@ -993,13 +998,7 @@ function renderStage(container, j, size, live){
   const ptsEl = container.querySelector('.stage-points');
   if(ptsEl) ptsEl.textContent = pts + 'p';
 
-  if(!arrived && j.video_url){
-    const fraction = j.revealed>0 ? Math.min(0.98, j.revealed/n) : 0.02;
-    if(container.dataset.lastFraction !== String(fraction)){
-      container.dataset.lastFraction = String(fraction);
-      seekJourneyVideo(container, fraction);
-    }
-  } else if(!j.video_url && !(arrived && j.arrival_media_url)){
+  if(!arrived && !j.video_url){
     const photoWrap = container.querySelector('.stage-photo');
     const wantImage = (c && c.image) || '';
     if(photoWrap && container.dataset.lastImg !== wantImage){
@@ -1050,8 +1049,8 @@ function renderVisning(){
     answerEl = document.createElement('div');
     answerEl.id = 'visningAnswerBox';
     answerEl.className = 'answer-reveal hidden';
-    answerEl.style.cssText = 'max-width:980px; margin:16px auto 0;';
-    stageEl.after(answerEl);
+    answerEl.style.cssText = 'position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:9; max-width:min(90vw,640px); text-align:center;';
+    document.getElementById('screenVisning').appendChild(answerEl);
   }
 
   if(gameState.finished){
@@ -1062,7 +1061,7 @@ function renderVisning(){
     const max = teams.length ? Math.max(...teams.map(t=>t.score||0)) : 0;
     const winners = teams.filter(t=>(t.score||0)===max && max>0);
     const winnerNames = winners.length ? winners.map(t=>escapeHtml(t.name)).join(' & ') : '—';
-    stageEl.innerHTML = `<div class="stage stage-lg">
+    stageEl.innerHTML = `<div class="stage stage-full">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
       <div class="glass"></div>
       <div class="stage-empty">
@@ -1085,7 +1084,7 @@ function renderVisning(){
     const optsHtml = (q && q.question_type==='multi_part' && q.multi_mode==='separate')
       ? `<div style="margin-top:14px; display:flex; flex-direction:column; gap:6px; max-width:480px;">${(q.parts||[]).filter(p=>p.prompt).map((p,i)=>`<div style="background:rgba(255,255,255,.06); border-radius:8px; padding:8px 12px; text-align:left;"><b style="color:var(--gold-bright);">${String.fromCharCode(65+(q.parts||[]).indexOf(p))}</b> — ${escapeHtml(p.prompt)}</div>`).join('')}</div>`
       : '';
-    stageEl.innerHTML = `<div class="stage stage-lg">
+    stageEl.innerHTML = `<div class="stage stage-full">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
       ${(!hasPartImages && q && q.media_url && !bgIsSpotify) ? `<div class="stage-photo show">${mediaTag(q.media_url,'')}</div>` : ''}
       <div class="glass"></div>
@@ -1094,7 +1093,7 @@ function renderVisning(){
     return;
   }
   document.getElementById('visningSub').textContent = j ? (gameState.countdown ? 'Gör er redo…' : 'Vart är tåget på väg?') : 'Draft Express';
-  renderStage(stageEl, j, 'stage-lg');
+  renderStage(stageEl, j, 'stage-full');
   renderCountdown('visningStage');
   syncAmbientSound(j);
   if(j && j.is_done && j.answer){
