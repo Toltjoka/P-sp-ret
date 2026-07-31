@@ -295,6 +295,16 @@
   .part-img-preview{width:34px; height:34px; border-radius:6px; object-fit:cover; border:1px solid rgba(212,175,55,.3); flex-shrink:0; display:none;}
   .part-img-preview.show{display:block;}
 
+  .manus-journey{margin-bottom:22px;}
+  .manus-journey h3{font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:19px; margin:0 0 4px;}
+  .manus-answer{font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:12px;}
+  .manus-answer b{color:var(--chalk);}
+  .manus-clue{background:var(--charcoal); border:1px solid rgba(244,246,242,.12); border-radius:10px; padding:12px 14px; margin-bottom:8px;}
+  .manus-clue .mc-pts{font-family:'Anton',sans-serif; color:var(--gold-bright); font-size:16px; margin-bottom:4px;}
+  .manus-clue .mc-text{font-size:14.5px; margin-bottom:8px;}
+  .manus-clue textarea{font-size:13px; min-height:38px;}
+  .warn321{position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:40; background:var(--red); color:#fff; font-family:'Anton',sans-serif; font-size:22px; padding:10px 26px; border-radius:30px; box-shadow:0 6px 18px rgba(0,0,0,.4); animation:warnPulse .6s ease infinite alternate;}
+  @keyframes warnPulse{ from{transform:translateX(-50%) scale(1);} to{transform:translateX(-50%) scale(1.08);} }
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
 </head>
@@ -379,6 +389,7 @@
 
 <!-- ===================== ADMINLÄGE ===================== -->
 <div id="screenAdmin" class="hidden wrap">
+  <div id="warn321" class="warn321 hidden"></div>
   <header>
     <div class="eyebrow">Fantasy Football Draft · Special</div>
     <h1>PÅ <span>SPÅRET</span></h1>
@@ -397,6 +408,7 @@
     <button data-tab="spela" class="active">🚂 Spela</button>
     <button data-tab="resor">✏️ Resor</button>
     <button data-tab="mellan">❓ Mellanfrågor</button>
+    <button data-tab="manus">📜 Manus</button>
     <button data-tab="bibliotek">📚 Bibliotek</button>
     <button data-tab="lag">🏈 Lag & poäng</button>
   </nav>
@@ -576,6 +588,14 @@
         <div id="bqAnswersList"></div>
       </div>
     </div>
+  </section>
+
+  <section id="tab-manus" class="hidden">
+    <div id="manusLocked" class="panel hidden">
+      <h2>Manus</h2>
+      <div class="locked-note">🔒 Logga in som admin för att se manuset.</div>
+    </div>
+    <div id="manusAdmin" class="hidden"></div>
   </section>
 
   <section id="tab-bibliotek" class="hidden">
@@ -796,7 +816,7 @@ document.querySelectorAll('.nav button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['spela','resor','mellan','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
+    ['spela','resor','mellan','manus','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
     renderAll();
   });
 });
@@ -893,7 +913,7 @@ sb.channel('ps-live')
 function renderAll(){
   if(currentMode==='admin'){
     renderScoreboardInto('scoreboard', null);
-    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab(); renderBibliotekTab();
+    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab(); renderBibliotekTab(); renderManusTab();
   } else if(currentMode==='visning'){
     renderVisning();
   } else if(currentMode==='spelare'){
@@ -1214,18 +1234,31 @@ function ensureClueTimer(j){
   timerTotal = timerRemaining;
   updateTimerLabel(timerRemaining);
   updateTimerFill(1);
+  updateWarn321(timerRemaining);
   timerIntervalId = setInterval(()=>{
     timerRemaining--;
     updateTimerLabel(timerRemaining);
     updateTimerFill(Math.max(0, timerRemaining) / timerTotal);
+    updateWarn321(timerRemaining);
     if(timerRemaining<=0){ clearClueTimer(); doAutoNextClue(); }
   }, 1000);
+}
+function updateWarn321(remaining){
+  const el = document.getElementById('warn321');
+  if(!el) return;
+  if(remaining>0 && remaining<=3){
+    el.textContent = remaining;
+    el.classList.remove('hidden');
+    if(remaining===3) playSynthBeep();
+  } else {
+    el.classList.add('hidden');
+  }
 }
 function updateTimerFill(fraction){
   const el = document.querySelector('#adminStage .dot.active-timer .fill');
   if(el) el.style.width = (fraction*100) + '%';
 }
-function clearClueTimer(){ if(timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId=null; } timerJourneyId=null; timerRevealed=null; }
+function clearClueTimer(){ if(timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId=null; } timerJourneyId=null; timerRevealed=null; const w=document.getElementById('warn321'); if(w) w.classList.add('hidden'); }
 function updateTimerLabel(sec){
   const el = document.getElementById('timerLabel');
   if(!el) return;
@@ -1543,6 +1576,54 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   }
   clearForm();
 });
+/* ============================================================
+   ADMIN: MANUS TAB (host script — questions, answers, own notes)
+   ============================================================ */
+function renderManusTab(){
+  document.getElementById('manusLocked').classList.toggle('hidden', isAdmin);
+  document.getElementById('manusAdmin').classList.toggle('hidden', !isAdmin);
+  if(!isAdmin) return;
+
+  const focused = document.activeElement;
+  const isEditingManus = focused && focused.matches && focused.matches('#manusAdmin textarea');
+  if(isEditingManus) return; // don't yank a note field out from under an active edit
+
+  const el = document.getElementById('manusAdmin');
+  el.innerHTML = journeys.map(j=>{
+    const bqs = bonusQuestions.filter(q=>q.journey_id===j.id).sort((a,b)=>a.sort_order-b.sort_order);
+    return `<div class="panel manus-journey">
+      <h3>🚂 ${escapeHtml(j.title)}</h3>
+      <div class="manus-answer">Svar: <b>${escapeHtml(j.answer)}</b> · ⏱${j.seconds_per_clue||25}s per ledtråd</div>
+      ${j.clues.map((c,i)=>`
+        <div class="manus-clue">
+          <div class="mc-pts">${c.points}p</div>
+          <div class="mc-text">${escapeHtml(c.text)}</div>
+          <label style="margin-bottom:4px;">Egna anteckningar/förklaring</label>
+          <textarea rows="2" data-journey="${j.id}" data-clue="${i}" placeholder="T.ex. förklaring av ordvitsen, vad ni ska säga när den visas...">${escapeHtml(c.notes||'')}</textarea>
+        </div>`).join('')}
+      ${bqs.length ? `<h3 style="margin-top:18px; font-size:16px;">❓ Mellanfrågor</h3>` : ''}
+      ${bqs.map(q=>`
+        <div class="manus-clue">
+          <div class="mc-pts">${escapeHtml(q.title||'Mellanfråga')} · ${q.points}p</div>
+          <div class="mc-text">${escapeHtml(q.prompt)}${q.question_type==='multi_part' ? '<br>'+(q.parts||[]).map((p,i)=>`${String.fromCharCode(65+i)}) ${escapeHtml(p.prompt||'(bild)')} — <b style="color:var(--gold-bright);">${escapeHtml(p.answer||'?')}</b>`).join('<br>') : `<br>Svar: <b style="color:var(--gold-bright);">${escapeHtml(q.reference_answer||'?')}</b>`}</div>
+          <label style="margin-bottom:4px;">Egna anteckningar/förklaring</label>
+          <textarea rows="2" data-bq="${q.id}" placeholder="T.ex. bakgrund till frågan, vad ni ska säga...">${escapeHtml(q.notes||'')}</textarea>
+        </div>`).join('')}
+    </div>`;
+  }).join('') || `<p class="help">Inga resor skapade än.</p>`;
+
+  el.querySelectorAll('textarea[data-journey]').forEach(ta=> ta.addEventListener('change', async ()=>{
+    const j = journeys.find(x=>x.id===ta.dataset.journey);
+    if(!j) return;
+    const idx = parseInt(ta.dataset.clue,10);
+    const newClues = j.clues.map((c,i)=> i===idx ? {...c, notes: ta.value} : c);
+    await sb.from('ps_journeys').update({ clues: newClues }).eq('id', j.id);
+  }));
+  el.querySelectorAll('textarea[data-bq]').forEach(ta=> ta.addEventListener('change', async ()=>{
+    await sb.from('ps_bonus_questions').update({ notes: ta.value }).eq('id', ta.dataset.bq);
+  }));
+}
+
 function renderBibliotekTab(){
   document.getElementById('bibliotekLocked').classList.toggle('hidden', isAdmin);
   document.getElementById('bibliotekAdmin').classList.toggle('hidden', !isAdmin);
