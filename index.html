@@ -878,8 +878,9 @@ async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_que
 async function fetchSounds(){ const {data} = await sb.from('ps_sounds').select('*').order('created_at'); sounds = data||[]; }
 async function fetchMedia(){ const {data} = await sb.from('ps_media').select('*').order('created_at', {ascending:false}); media = data||[]; }
 async function fetchBonusAnswers(){
-  if(!gameState.active_bonus_question_id){ bonusAnswers=[]; return; }
-  const {data} = await sb.from('ps_bonus_answers').select('*').eq('question_id', gameState.active_bonus_question_id);
+  const qid = gameState.active_bonus_question_id || gameState.bonus_result_question_id;
+  if(!qid){ bonusAnswers=[]; return; }
+  const {data} = await sb.from('ps_bonus_answers').select('*').eq('question_id', qid);
   bonusAnswers = data||[];
 }
 
@@ -1148,22 +1149,19 @@ function renderVisning(){
   if(gameState.bonus_result_question_id){
     answerEl.classList.add('hidden');
     syncAmbientSound(null);
-    const q = bonusQuestions.find(x=>x.id===gameState.bonus_result_question_id);
-    document.getElementById('visningSub').textContent = 'Resultat';
+    document.getElementById('visningSub').textContent = 'Ställning';
     stageEl.dataset.stageKey = 'bonusresult';
-    renderScoreboardInto('scoreboardVisning', null);
-    sbEl.classList.remove('hidden');
-    const rows = teams.map(t=>{
-      const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===(q?q.id:null));
-      const pts = a && a.pending_points!=null ? a.pending_points : 0;
-      return `<div style="background:rgba(255,255,255,.06); border-radius:10px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; gap:14px;">
-        <b>${escapeHtml(t.name)}</b><span style="color:var(--gold-bright); font-family:'Anton',sans-serif; font-size:20px;">+${pts}p</span></div>`;
-    }).join('');
+    sbEl.classList.add('hidden');
+    const rows = teams.map(t=>`
+      <div style="background:rgba(255,255,255,.06); border-radius:16px; padding:18px 32px; display:flex; justify-content:space-between; align-items:center; gap:24px; min-width:min(70vw,420px);">
+        <span style="font-size:clamp(16px,2.6vw,22px); font-weight:700;">${escapeHtml(t.name)}</span>
+        <span style="color:var(--gold-bright); font-family:'Anton',sans-serif; font-size:clamp(34px,6vw,64px);">${t.score||0}</span>
+      </div>`).join('');
     stageEl.innerHTML = `<div class="stage stage-full">
       <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
       <div class="glass"></div>
-      <div class="stage-empty"><div class="title">📊 ${escapeHtml(q && q.title ? q.title : 'Resultat')}</div>
-      <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px; max-width:480px; width:100%;">${rows}</div></div>
+      <div class="stage-empty"><div class="title" style="margin-bottom:20px;">📊 Ställning</div>
+      <div style="display:flex; flex-direction:column; gap:14px; align-items:center;">${rows}</div></div>
     </div>`;
     return;
   }
