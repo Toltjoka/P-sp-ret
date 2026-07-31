@@ -1016,10 +1016,7 @@ function renderStage(container, j, size, live){
   const n = j.clues.length;
 
   const ptsEl = container.querySelector('.stage-points');
-  if(ptsEl){
-    if(live){ ptsEl.textContent = pts + 'p'; ptsEl.style.display=''; }
-    else { ptsEl.style.display = 'none'; }
-  }
+  if(ptsEl) ptsEl.textContent = pts + 'p';
 
   if(!arrived && !j.video_url){
     const photoWrap = container.querySelector('.stage-photo');
@@ -1063,9 +1060,12 @@ function renderStage(container, j, size, live){
    VISNINGSLÄGE
    ============================================================ */
 function renderVisning(){
-  renderScoreboardInto('scoreboardVisning', null);
   const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
   const stageEl = document.getElementById('visningStage');
+  const hideScores = j && !j.is_done; // don't reveal who's already scored mid-resa
+  const sbEl = document.getElementById('scoreboardVisning');
+  sbEl.classList.toggle('hidden', !!hideScores);
+  if(!hideScores) renderScoreboardInto('scoreboardVisning', null);
 
   let answerEl = document.getElementById('visningAnswerBox');
   if(!answerEl){
