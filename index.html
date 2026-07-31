@@ -1092,7 +1092,7 @@ function renderVisning(){
     </div>`;
     return;
   }
-  document.getElementById('visningSub').textContent = j ? (gameState.countdown ? 'Gör er redo…' : 'Vart är tåget på väg?') : 'Draft Express';
+  document.getElementById('visningSub').textContent = j ? (gameState.countdown ? 'Gör er redo…' : 'Vart är vi på väg?') : 'Draft Express';
   renderStage(stageEl, j, 'stage-full');
   renderCountdown('visningStage');
   syncAmbientSound(j);
