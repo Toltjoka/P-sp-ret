@@ -305,6 +305,20 @@
   .manus-clue textarea{font-size:13px; min-height:38px;}
   .warn321{position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:40; background:var(--red); color:#fff; font-family:'Anton',sans-serif; font-size:22px; padding:10px 26px; border-radius:30px; box-shadow:0 6px 18px rgba(0,0,0,.4); animation:warnPulse .6s ease infinite alternate;}
   @keyframes warnPulse{ from{transform:translateX(-50%) scale(1);} to{transform:translateX(-50%) scale(1.08);} }
+
+  .manus-cards{position:fixed; inset:0; z-index:60; background:linear-gradient(160deg,#0a2647,#04182e); display:flex; flex-direction:column; padding:14px;}
+  .mc-topbar{display:flex; justify-content:space-between; align-items:center; padding:4px 6px 10px; flex-shrink:0;}
+  .mc-topbar span{font-family:'Space Mono',monospace; font-size:12px; letter-spacing:.1em; color:var(--muted);}
+  .mc-topbar button{background:transparent; border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:8px; padding:6px 14px; font-size:12.5px; cursor:pointer;}
+  .mc-card{flex:1; background:var(--charcoal); border:1px solid rgba(255,182,18,.3); border-radius:18px; padding:clamp(16px,4vw,40px); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; overflow-y:auto; gap:10px;}
+  .mc-kicker{font-family:'Space Mono',monospace; font-size:clamp(11px,1.6vw,14px); letter-spacing:.15em; text-transform:uppercase; color:var(--gold-bright);}
+  .mc-badge{font-family:'Anton',sans-serif; font-size:clamp(28px,6vw,54px); color:var(--gold-bright);}
+  .mc-text{font-family:'Anton',sans-serif; font-weight:400; font-size:clamp(20px,4.4vw,42px); line-height:1.25; color:var(--chalk); max-width:900px; white-space:pre-line;}
+  .mc-answer{font-family:'Space Mono',monospace; font-size:clamp(13px,2vw,17px); color:var(--green-ok); background:rgba(26,143,76,.15); border:1px solid rgba(26,143,76,.4); border-radius:10px; padding:8px 18px; margin-top:6px;}
+  .mc-card textarea{width:100%; max-width:700px; margin-top:10px; font-size:clamp(12px,1.8vw,15px); background:rgba(0,0,0,.25); border-color:rgba(255,182,18,.3);}
+  .mc-nav{display:flex; gap:10px; padding-top:12px; flex-shrink:0;}
+  .mc-nav button{flex:1; background:var(--charcoal); border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:12px; padding:16px; font-size:15px; font-weight:700; cursor:pointer;}
+  .mc-nav button:active{transform:scale(.98);}
   @media (max-width:640px){ .form-grid{grid-template-columns:1fr;} .stage.stage-lg{height:280px;} .buzzer-btn{width:170px; height:170px; font-size:20px;} }
 </style>
 </head>
@@ -595,7 +609,10 @@
       <h2>Manus</h2>
       <div class="locked-note">🔒 Logga in som admin för att se manuset.</div>
     </div>
-    <div id="manusAdmin" class="hidden"></div>
+    <div id="manusAdmin" class="hidden">
+      <button class="btn btn-gold" id="openCardModeBtn" type="button" style="width:100%; padding:14px; margin-bottom:18px; font-size:15px;">🗂️ Öppna kortläge (helskärm, för mobilen)</button>
+      <div id="manusList"></div>
+    </div>
   </section>
 
   <section id="tab-bibliotek" class="hidden">
@@ -721,6 +738,24 @@
     <div class="modal-actions">
       <button class="btn btn-ghost" id="mediaPickerCancel" type="button" style="flex:1;">Stäng</button>
     </div>
+  </div>
+</div>
+
+<div id="cardMode" class="manus-cards hidden">
+  <div class="mc-topbar">
+    <span id="mcProgress">1 / 1</span>
+    <button id="mcClose" type="button">✕ Stäng</button>
+  </div>
+  <div class="mc-card" id="mcCard">
+    <div class="mc-kicker" id="mcKicker"></div>
+    <div class="mc-badge" id="mcBadge"></div>
+    <div class="mc-text" id="mcText"></div>
+    <div class="mc-answer" id="mcAnswer"></div>
+    <textarea id="mcNotes" placeholder="Egna anteckningar/förklaring..." rows="2"></textarea>
+  </div>
+  <div class="mc-nav">
+    <button id="mcPrev" type="button">← Föregående</button>
+    <button id="mcNext" type="button">Nästa →</button>
   </div>
 </div>
 
@@ -1591,7 +1626,7 @@ function renderManusTab(){
   const isEditingManus = focused && focused.matches && focused.matches('#manusAdmin textarea');
   if(isEditingManus) return; // don't yank a note field out from under an active edit
 
-  const el = document.getElementById('manusAdmin');
+  const el = document.getElementById('manusList');
   el.innerHTML = journeys.map(j=>{
     const bqs = bonusQuestions.filter(q=>q.journey_id===j.id).sort((a,b)=>a.sort_order-b.sort_order);
     return `<div class="panel manus-journey">
@@ -1626,6 +1661,93 @@ function renderManusTab(){
     await sb.from('ps_bonus_questions').update({ notes: ta.value }).eq('id', ta.dataset.bq);
   }));
 }
+
+/* ---------------- MANUS CARD MODE (fullscreen, one question at a time) ---------------- */
+let manusCards = [];
+let manusCardIdx = 0;
+
+function buildManusCards(){
+  const cards = [];
+  journeys.forEach(j=>{
+    j.clues.forEach((c,i)=> cards.push({
+      type:'clue', journeyId:j.id, clueIndex:i,
+      kicker: j.title, badge: c.points+'p', text: c.text, answer: j.answer, notes: c.notes||''
+    }));
+    bonusQuestions.filter(q=>q.journey_id===j.id).sort((a,b)=>a.sort_order-b.sort_order).forEach(q=>{
+      const answerText = q.question_type==='multi_part'
+        ? (q.parts||[]).map((p,i)=>`${String.fromCharCode(65+i)}) ${p.answer||'?'}`).join('   ')
+        : (q.reference_answer||'?');
+      cards.push({
+        type:'bonus', bqId:q.id, journeyId:j.id,
+        kicker: `${j.title} · Mellanfråga`, badge: q.title||'Mellanfråga',
+        text: q.prompt + (q.question_type==='multi_part' ? '\n' + (q.parts||[]).map((p,i)=>`${String.fromCharCode(65+i)}) ${p.prompt||'(bild)'}`).join('\n') : ''),
+        answer: answerText, notes: q.notes||''
+      });
+    });
+  });
+  return cards;
+}
+
+function renderManusCard(){
+  const c = manusCards[manusCardIdx];
+  if(!c) return;
+  document.getElementById('mcProgress').textContent = `${manusCardIdx+1} / ${manusCards.length}`;
+  document.getElementById('mcKicker').textContent = c.kicker;
+  document.getElementById('mcBadge').textContent = c.badge;
+  document.getElementById('mcText').textContent = c.text;
+  document.getElementById('mcAnswer').textContent = '✅ ' + c.answer;
+  document.getElementById('mcNotes').value = c.notes;
+  document.getElementById('mcPrev').disabled = manusCardIdx===0;
+  document.getElementById('mcNext').disabled = manusCardIdx>=manusCards.length-1;
+}
+async function saveManusCardNotes(){
+  const c = manusCards[manusCardIdx];
+  if(!c) return;
+  const val = document.getElementById('mcNotes').value;
+  if(val === c.notes) return;
+  c.notes = val;
+  if(c.type==='clue'){
+    const j = journeys.find(x=>x.id===c.journeyId);
+    if(!j) return;
+    const newClues = j.clues.map((cl,i)=> i===c.clueIndex ? {...cl, notes: val} : cl);
+    await sb.from('ps_journeys').update({ clues: newClues }).eq('id', j.id);
+  } else {
+    await sb.from('ps_bonus_questions').update({ notes: val }).eq('id', c.bqId);
+  }
+}
+document.getElementById('openCardModeBtn').addEventListener('click', ()=>{
+  manusCards = buildManusCards();
+  if(!manusCards.length){ alert('Inga resor eller frågor att visa än.'); return; }
+  manusCardIdx = 0;
+  document.getElementById('cardMode').classList.remove('hidden');
+  renderManusCard();
+});
+document.getElementById('mcClose').addEventListener('click', async ()=>{
+  await saveManusCardNotes();
+  document.getElementById('cardMode').classList.add('hidden');
+});
+document.getElementById('mcPrev').addEventListener('click', async ()=>{
+  await saveManusCardNotes();
+  if(manusCardIdx>0){ manusCardIdx--; renderManusCard(); }
+});
+document.getElementById('mcNext').addEventListener('click', async ()=>{
+  await saveManusCardNotes();
+  if(manusCardIdx<manusCards.length-1){ manusCardIdx++; renderManusCard(); }
+});
+// basic swipe support
+(function(){
+  const cardEl = document.getElementById('mcCard');
+  let touchX = null;
+  cardEl.addEventListener('touchstart', e=>{ touchX = e.touches[0].clientX; }, {passive:true});
+  cardEl.addEventListener('touchend', e=>{
+    if(touchX===null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if(Math.abs(dx) < 60) return;
+    if(dx < 0) document.getElementById('mcNext').click();
+    else document.getElementById('mcPrev').click();
+  }, {passive:true});
+})();
 
 function renderBibliotekTab(){
   document.getElementById('bibliotekLocked').classList.toggle('hidden', isAdmin);
