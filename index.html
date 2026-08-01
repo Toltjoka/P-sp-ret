@@ -339,6 +339,9 @@
   .mc-live .mcl-actions button.ghost{background:transparent; border:1px solid rgba(244,246,242,.3); color:var(--chalk);}
   .mc-live .mcl-answer-block{background:rgba(255,255,255,.05); border-radius:10px; padding:10px 12px; text-align:left; font-size:13px;}
   .mc-live .mcl-answer-block .award-custom{margin-top:6px;}
+  .mcl-stage-preview{width:100%; display:flex; justify-content:center; margin-bottom:4px;}
+  .mcl-stage-preview .stage{max-width:100%;}
+  .mcl-teamrow.buzzing{background:rgba(200,16,46,.28); border:1px solid rgba(200,16,46,.55);}
   .mc-nav{display:flex; gap:10px; padding-top:12px; flex-shrink:0;}
   .mc-nav button{flex:1; background:var(--charcoal); border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:12px; padding:16px; font-size:15px; font-weight:700; cursor:pointer;}
   .mc-nav button:active{transform:scale(.98);}
@@ -784,6 +787,7 @@
 <div id="cardMode" class="manus-cards hidden">
   <div class="mc-topbar">
     <span id="mcProgress">1 / 1</span>
+    <button id="mcGoLive" type="button">🔴 Hoppa till live</button>
     <button id="mcClose" type="button">✕ Stäng</button>
   </div>
   <div class="mc-card" id="mcCard">
@@ -1909,32 +1913,41 @@ function renderManusLiveControls(){
   const focused = document.activeElement;
   if(focused && focused.matches && focused.matches('#mcLive input')) return; // don't yank an in-progress point entry
   const c = manusCards[manusCardIdx];
-  if(!c || !isAdmin){ host.innerHTML=''; return; }
+  if(!c || !isAdmin){ host.innerHTML=''; host.dataset.mode=''; return; }
 
   if(c.type==='clue'){
     const j = journeys.find(x=>x.id===c.journeyId);
-    if(!j){ host.innerHTML=''; return; }
+    if(!j){ host.innerHTML=''; host.dataset.mode=''; return; }
     const isLiveJourney = gameState.current_journey_id===c.journeyId;
     if(!isLiveJourney){
+      host.dataset.mode = 'start';
       host.innerHTML = `<div class="mcl-actions"><button data-mcl-start="${j.id}">▶ Starta den här resan</button></div>`;
       host.querySelector('[data-mcl-start]').addEventListener('click', e=> startJourney(e.target.dataset.mclStart));
       return;
     }
+    const liveKey = 'clue-live-' + j.id;
+    if(host.dataset.mode !== liveKey){
+      host.dataset.mode = liveKey;
+      host.innerHTML = `<div id="mclStagePreview" class="mcl-stage-preview"></div><div id="mclRest"></div>`;
+    }
+    renderStage(document.getElementById('mclStagePreview'), j, 'stage-md', true);
+    const rest = document.getElementById('mclRest');
     if(gameState.countdown){
-      host.innerHTML = `<div class="mcl-status">🔴 LIVE — nedräkning: ${gameState.countdown}</div>`;
+      rest.innerHTML = `<div class="mcl-status">🔴 LIVE — nedräkning: ${gameState.countdown}</div>`;
       return;
     }
     const isThisClueShowing = (j.revealed-1)===c.clueIndex;
     const out = new Set(gameState.out_teams||[]);
+    const buzzedTeamId = gameState.resolved===false ? gameState.buzzed_team_id : null;
     const teamRows = teams.map(t=>`
-      <div class="mcl-teamrow ${out.has(t.id)?'out':''}"><b>${escapeHtml(t.name)}</b>
+      <div class="mcl-teamrow ${out.has(t.id)?'out':''} ${t.id===buzzedTeamId?'buzzing':''}"><b>${escapeHtml(t.name)}${t.id===buzzedTeamId?' 🔴 BUZZAR!':''}</b>
         <div class="mcl-btns">
           <button class="tp-correct" data-mcl-correct="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>✅</button>
           <button class="tp-wrong" data-mcl-wrong="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>❌</button>
         </div>
       </div>`).join('');
-    host.innerHTML = `
-      <div class="mcl-status">${gameState.manually_paused ? '⏸ PAUSAD' : '🔴 LIVE'}${isThisClueShowing ? ' — det här är ledtråden som visas nu' : ' — annan ledtråd visas just nu ('+(j.revealed)+'/'+j.clues.length+')'}</div>
+    rest.innerHTML = `
+      <div class="mcl-status">${gameState.manually_paused ? '⏸ PAUSAD' : (buzzedTeamId ? '🔴 NÅGON BUZZAR' : '🔴 LIVE')}${isThisClueShowing ? ' — det här är ledtråden som visas nu' : ' — annan ledtråd visas just nu ('+(j.revealed)+'/'+j.clues.length+')'}</div>
       ${teamRows}
       <div class="mcl-actions">
         <button class="ghost" data-mcl-pause="1">${gameState.manually_paused ? '▶ Fortsätt' : '⏸ Pausa'}</button>
@@ -1942,18 +1955,19 @@ function renderManusLiveControls(){
         <button class="ghost" data-mcl-reveal="1">Visa svaret</button>
         ${j.is_done ? `<button data-mcl-endjourney="1">🏁 Avsluta resa → mellanfråga</button>` : ''}
       </div>`;
-    host.querySelectorAll('[data-mcl-correct]').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.mclCorrect)));
-    host.querySelectorAll('[data-mcl-wrong]').forEach(b=> b.addEventListener('click', ()=> markWrong(b.dataset.mclWrong)));
-    const pauseBtn = host.querySelector('[data-mcl-pause]'); if(pauseBtn) pauseBtn.addEventListener('click', async ()=>{ await sb.from('ps_game_state').update({ manually_paused: !gameState.manually_paused }).eq('id', gameStateRowId); });
-    const nextBtn = host.querySelector('[data-mcl-next]'); if(nextBtn) nextBtn.addEventListener('click', ()=> document.getElementById('nextClueBtn').click());
-    const revealBtn = host.querySelector('[data-mcl-reveal]'); if(revealBtn) revealBtn.addEventListener('click', ()=> document.getElementById('revealAnsBtn').click());
-    const endBtn = host.querySelector('[data-mcl-endjourney]'); if(endBtn) endBtn.addEventListener('click', ()=> document.getElementById('endJourneyBtn').click());
+    rest.querySelectorAll('[data-mcl-correct]').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.mclCorrect)));
+    rest.querySelectorAll('[data-mcl-wrong]').forEach(b=> b.addEventListener('click', ()=> markWrong(b.dataset.mclWrong)));
+    const pauseBtn = rest.querySelector('[data-mcl-pause]'); if(pauseBtn) pauseBtn.addEventListener('click', async ()=>{ await sb.from('ps_game_state').update({ manually_paused: !gameState.manually_paused }).eq('id', gameStateRowId); });
+    const nextBtn = rest.querySelector('[data-mcl-next]'); if(nextBtn) nextBtn.addEventListener('click', ()=> document.getElementById('nextClueBtn').click());
+    const revealBtn = rest.querySelector('[data-mcl-reveal]'); if(revealBtn) revealBtn.addEventListener('click', ()=> document.getElementById('revealAnsBtn').click());
+    const endBtn = rest.querySelector('[data-mcl-endjourney]'); if(endBtn) endBtn.addEventListener('click', ()=> document.getElementById('endJourneyBtn').click());
     return;
   }
 
   if(c.type==='bonus'){
     const q = bonusQuestions.find(x=>x.id===c.bqId);
-    if(!q){ host.innerHTML=''; return; }
+    if(!q){ host.innerHTML=''; host.dataset.mode=''; return; }
+    host.dataset.mode = 'bonus';
     if(gameState.bonus_result_question_id===q.id){
       const rows = teams.map(t=>{
         const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===q.id);
@@ -2006,10 +2020,35 @@ async function saveManusCardNotes(){
     await sb.from('ps_bonus_questions').update({ notes: val }).eq('id', c.bqId);
   }
 }
+function findLiveCardIndex(){
+  if(gameState.active_bonus_question_id){
+    return manusCards.findIndex(c=>c.type==='bonus' && c.bqId===gameState.active_bonus_question_id);
+  }
+  if(gameState.bonus_result_question_id){
+    return manusCards.findIndex(c=>c.type==='bonus' && c.bqId===gameState.bonus_result_question_id);
+  }
+  if(gameState.current_journey_id){
+    const j = journeys.find(x=>x.id===gameState.current_journey_id);
+    if(j){
+      const idx = Math.max(0, j.revealed-1);
+      return manusCards.findIndex(c=>c.type==='clue' && c.journeyId===j.id && c.clueIndex===idx);
+    }
+  }
+  return -1;
+}
+document.getElementById('mcGoLive').addEventListener('click', async ()=>{
+  await saveManusCardNotes();
+  manusCards = buildManusCards();
+  const idx = findLiveCardIndex();
+  if(idx<0){ alert('Inget är live just nu — ingen resa eller mellanfråga är igång.'); return; }
+  manusCardIdx = idx;
+  renderManusCard();
+});
 document.getElementById('openCardModeBtn').addEventListener('click', ()=>{
   manusCards = buildManusCards();
   if(!manusCards.length){ alert('Inga resor eller frågor att visa än.'); return; }
-  manusCardIdx = 0;
+  const liveIdx = findLiveCardIndex();
+  manusCardIdx = liveIdx>=0 ? liveIdx : 0;
   document.getElementById('cardMode').classList.remove('hidden');
   renderManusCard();
 });
