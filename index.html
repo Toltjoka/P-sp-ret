@@ -334,11 +334,23 @@
 <body>
 
 <!-- ===================== MODE SELECT ===================== -->
-<div id="screenSelect" class="mode-select">
+<div id="screenGamePicker" class="mode-select hidden">
   <div>
-    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <div class="eyebrow">Alla spel</div>
     <h1>PÅ <span>SPÅRET</span></h1>
-    <div class="sub">Draft Express — välj läge</div>
+    <div class="sub">Vilket spel vill ni köra?</div>
+  </div>
+  <div class="mode-cards" id="gamePickerCards"></div>
+  <div style="text-align:center; margin-top:26px;">
+    <button class="mode-switch" id="newGameBtn" type="button">+ Nytt spel</button>
+  </div>
+</div>
+
+<div id="screenSelect" class="mode-select hidden">
+  <div>
+    <div class="eyebrow" id="selectEyebrow">Fantasy Football Draft · Special</div>
+    <h1>PÅ <span>SPÅRET</span></h1>
+    <div class="sub" id="selectSub">Draft Express — välj läge</div>
   </div>
   <div class="mode-cards">
     <div class="mode-card" data-mode="visning">
@@ -357,6 +369,9 @@
       <p>Styr resorna, ljudet, poängen och mellanfrågorna.</p>
     </div>
   </div>
+  <div style="text-align:center; margin-top:20px;">
+    <button class="mode-switch" id="switchGameBtn" type="button">🔀 Byt spel</button>
+  </div>
 </div>
 
 <!-- ===================== VISNINGSLÄGE ===================== -->
@@ -370,7 +385,7 @@
 <!-- ===================== SPELARLÄGE ===================== -->
 <div id="screenSpelare" class="hidden wrap">
   <header>
-    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <div class="eyebrow" id="spelareEyebrow">Fantasy Football Draft · Special</div>
     <h1>PÅ <span>SPÅRET</span></h1>
   </header>
 
@@ -414,9 +429,9 @@
 <div id="screenAdmin" class="hidden wrap">
   <div id="warn321" class="warn321 hidden"></div>
   <header>
-    <div class="eyebrow">Fantasy Football Draft · Special</div>
+    <div class="eyebrow" id="adminEyebrow">Fantasy Football Draft · Special</div>
     <h1>PÅ <span>SPÅRET</span></h1>
-    <div class="sub">Draft Express — adminpanel</div>
+    <div class="sub" id="adminSub">Draft Express — adminpanel</div>
   </header>
 
   <div class="authbar">
@@ -797,9 +812,17 @@ let lastBuzzedAt = null;
 let myTeam = null; // player mode: the team object this device represents
 let timerJourneyId = null, timerRevealed = null, timerIntervalId = null, timerRemaining = null, timerTotal = null;
 
+let games = [];        // every ps_games row, for the picker
+let currentGame = null; // {id, slug, name} — which game this browser tab is playing
+let gameStateRowId = null; // integer PK of this game's ps_game_state row (was always 1 pre-multi-game)
+
 const params = new URLSearchParams(location.search);
+let currentGameSlug = params.get('game') || null;
 let currentMode = params.get('mode') || 'select';
 let pendingTeamCode = params.get('team') || null;
+if(!currentGameSlug && currentMode !== 'select'){
+  currentGameSlug = 'draft-express'; // old saved links/AirPlay setups had no ?game= param — keep them working
+}
 
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function isVideoUrl(url){ return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(url||'') || /^data:video\//.test(url||''); }
@@ -868,10 +891,10 @@ document.querySelectorAll('.nav button').forEach(btn=>{
 });
 
 /* ---------------- FETCH ---------------- */
-async function fetchTeams(){ const {data} = await sb.from('ps_teams').select('*').order('sort_order'); teams = data||[]; }
-async function fetchJourneys(){ const {data} = await sb.from('ps_journeys').select('*').order('sort_order'); journeys = data||[]; }
-async function fetchGameState(){ const {data} = await sb.from('ps_game_state').select('*').eq('id',1).single(); if(data) gameState = data; }
-async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').order('sort_order'); bonusQuestions = data||[]; }
+async function fetchTeams(){ const {data} = await sb.from('ps_teams').select('*').eq('game_id', currentGame.id).order('sort_order'); teams = data||[]; }
+async function fetchJourneys(){ const {data} = await sb.from('ps_journeys').select('*').eq('game_id', currentGame.id).order('sort_order'); journeys = data||[]; }
+async function fetchGameState(){ const {data} = await sb.from('ps_game_state').select('*').eq('id', gameStateRowId).single(); if(data) gameState = data; }
+async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').eq('game_id', currentGame.id).order('sort_order'); bonusQuestions = data||[]; }
 async function fetchSounds(){ const {data} = await sb.from('ps_sounds').select('*').order('created_at'); sounds = data||[]; }
 async function fetchMedia(){ const {data} = await sb.from('ps_media').select('*').order('created_at', {ascending:false}); media = data||[]; }
 async function fetchBonusAnswers(){
@@ -882,6 +905,7 @@ async function fetchBonusAnswers(){
 }
 
 async function refetchAll(){
+  if(!currentGame) return;
   await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState(), fetchBonusQuestions(), fetchSounds(), fetchMedia()]);
   await fetchBonusAnswers();
   checkBuzzSound();
@@ -1006,14 +1030,14 @@ async function applyScoreChange(teamId, delta, note){
   const t = teams.find(x=>x.id===teamId);
   if(!t) return;
   await sb.from('ps_teams').update({ score:(t.score||0)+delta }).eq('id', teamId);
-  await sb.from('ps_game_state').update({ last_points_team_id:teamId, last_points_delta:delta, last_points_note:note||null }).eq('id',1);
+  await sb.from('ps_game_state').update({ last_points_team_id:teamId, last_points_delta:delta, last_points_note:note||null }).eq('id', gameStateRowId);
 }
 async function undoLastPoints(){
   if(!requireAdmin()) return;
   if(!gameState.last_points_team_id || gameState.last_points_delta==null) return;
   const t = teams.find(x=>x.id===gameState.last_points_team_id);
   if(t) await sb.from('ps_teams').update({ score:(t.score||0)-gameState.last_points_delta }).eq('id', t.id);
-  await sb.from('ps_game_state').update({ last_points_team_id:null, last_points_delta:null, last_points_note:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ last_points_team_id:null, last_points_delta:null, last_points_note:null }).eq('id', gameStateRowId);
 }
 
 /* ============================================================
@@ -1184,7 +1208,7 @@ function renderVisning(){
     </div>`;
     return;
   }
-  document.getElementById('visningSub').textContent = j ? (gameState.countdown ? 'Gör er redo…' : 'Vart är vi på väg?') : 'Draft Express';
+  document.getElementById('visningSub').textContent = j ? (gameState.countdown ? 'Gör er redo…' : 'Vart är vi på väg?') : (currentGame ? currentGame.name : 'PÅ SPÅRET');
   renderStage(stageEl, j, 'stage-full');
   renderCountdown('visningStage');
   syncAmbientSound(j);
@@ -1254,13 +1278,13 @@ async function startJourney(id){
       current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[],
       active_bonus_question_id:null, bonus_result_question_id:null, countdown:3,
       journey_started_at: new Date().toISOString(), manually_paused:false
-    }).eq('id',1);
+    }).eq('id', gameStateRowId);
     await sleep(1000);
-    await sb.from('ps_game_state').update({ countdown:2 }).eq('id',1);
+    await sb.from('ps_game_state').update({ countdown:2 }).eq('id', gameStateRowId);
     await sleep(1000);
-    await sb.from('ps_game_state').update({ countdown:1 }).eq('id',1);
+    await sb.from('ps_game_state').update({ countdown:1 }).eq('id', gameStateRowId);
     await sleep(1000);
-    await sb.from('ps_game_state').update({ countdown:null }).eq('id',1);
+    await sb.from('ps_game_state').update({ countdown:null }).eq('id', gameStateRowId);
     await sb.from('ps_journeys').update({ revealed:1 }).eq('id', id);
   } finally {
     startingJourney = false;
@@ -1416,7 +1440,7 @@ async function doAutoNextClue(){
 
 document.getElementById('pauseBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ manually_paused: !gameState.manually_paused }).eq('id',1);
+  await sb.from('ps_game_state').update({ manually_paused: !gameState.manually_paused }).eq('id', gameStateRowId);
 });
 document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
@@ -1471,7 +1495,7 @@ async function awardCorrect(teamId){
   } else {
     await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
   }
-  await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id', gameStateRowId);
   } finally {
     judgingGuess = false;
   }
@@ -1488,7 +1512,7 @@ async function markWrong(teamId){
     const out = new Set(gameState.out_teams||[]); out.add(teamId);
     const canAdvance = j.revealed < j.clues.length;
     if(canAdvance) await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
-    await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id',1);
+    await sb.from('ps_game_state').update({ out_teams:[...out], resolved:true, buzzed_team_id:null }).eq('id', gameStateRowId);
   } finally {
     judgingGuess = false;
   }
@@ -1498,18 +1522,18 @@ document.getElementById('revealAnsBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const j = currentJourney(); if(!j) return;
   await sb.from('ps_journeys').update({ is_done:true }).eq('id', j.id);
-  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null }).eq('id', gameStateRowId);
 });
 document.getElementById('resetJourneyBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const j = currentJourney(); if(!j) return;
   if(!confirm('Nollställa denna resa? Redan tilldelade poäng dras inte tillbaka automatiskt.')) return;
   await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
-  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[], journey_started_at: new Date().toISOString(), manually_paused:false }).eq('id',1);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[], journey_started_at: new Date().toISOString(), manually_paused:false }).eq('id', gameStateRowId);
 });
 document.getElementById('backToLibrary').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[], manually_paused:false }).eq('id',1);
+  await sb.from('ps_game_state').update({ current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[], manually_paused:false }).eq('id', gameStateRowId);
 });
 
 // End the journey and immediately kick off its first mellanfråga
@@ -1521,7 +1545,7 @@ document.getElementById('endJourneyBtn').addEventListener('click', async ()=>{
   await sb.from('ps_game_state').update({
     current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
     active_bonus_question_id: first ? first.id : null, bonus_result_question_id: null
-  }).eq('id',1);
+  }).eq('id', gameStateRowId);
 });
 
 function activeBonusSiblings(){
@@ -1623,11 +1647,11 @@ document.getElementById('nextBonusBtn').addEventListener('click', async ()=>{
   for(const a of staged){
     await applyScoreChange(a.team_id, a.pending_points, `Mellanfråga: ${q.title||''}`);
   }
-  await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:q.id }).eq('id',1);
+  await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:q.id }).eq('id', gameStateRowId);
 });
 document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null }).eq('id', gameStateRowId);
 });
 
 function renderBonusResults(){
@@ -1649,7 +1673,7 @@ document.getElementById('brContinueBtn').addEventListener('click', async ()=>{
   const siblings = finishedQ ? bonusQuestions.filter(x=>x.journey_id===finishedQ.journey_id).sort((a,b)=>a.sort_order-b.sort_order) : [];
   const idx = finishedQ ? siblings.findIndex(x=>x.id===finishedQ.id) : -1;
   const next = idx>=0 ? (siblings[idx+1] || null) : null;
-  await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: next ? next.id : null }).eq('id',1);
+  await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: next ? next.id : null }).eq('id', gameStateRowId);
 });
 
 /* ============================================================
@@ -1745,7 +1769,7 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(editingId){
     await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, sound_id, revealed:0, is_done:false }).eq('id', editingId);
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, sound_id, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, sound_id, sort_order: journeys.length+1, start_points: clues[0].points, step:1, game_id: currentGame.id });
   }
   clearForm();
 });
@@ -1999,7 +2023,7 @@ function loadJourneyIntoForm(id){
 document.getElementById('saveSoundBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const url = document.getElementById('buzzerSoundUrl').value.trim();
-  await sb.from('ps_game_state').update({ buzzer_sound_url: url || null }).eq('id',1);
+  await sb.from('ps_game_state').update({ buzzer_sound_url: url || null }).eq('id', gameStateRowId);
 });
 document.getElementById('testSoundBtn').addEventListener('click', playBuzzerSound);
 
@@ -2151,7 +2175,7 @@ document.getElementById('bqSaveBtn').addEventListener('click', async ()=>{
     await sb.from('ps_bonus_questions').update({ journey_id, title: title||null, question_type, multi_mode, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts }).eq('id', editingBqId);
   } else {
     const siblingCount = bonusQuestions.filter(q=>q.journey_id===journey_id).length;
-    await sb.from('ps_bonus_questions').insert({ journey_id, title: title||null, question_type, multi_mode, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts, sort_order: siblingCount+1 });
+    await sb.from('ps_bonus_questions').insert({ journey_id, title: title||null, question_type, multi_mode, prompt, media_url: media_url||null, reference_answer: reference_answer||null, points: question_type==='multi_part'?partsTotal:points, parts, sort_order: siblingCount+1, game_id: currentGame.id });
   }
   clearBqForm();
 });
@@ -2191,7 +2215,7 @@ function renderMellanTab(){
 
   el.querySelectorAll('[data-toggle]').forEach(b=> b.addEventListener('click', async ()=>{
     const activating = gameState.active_bonus_question_id !== b.dataset.toggle;
-    await sb.from('ps_game_state').update({ active_bonus_question_id: activating ? b.dataset.toggle : null, bonus_result_question_id: null }).eq('id',1);
+    await sb.from('ps_game_state').update({ active_bonus_question_id: activating ? b.dataset.toggle : null, bonus_result_question_id: null }).eq('id', gameStateRowId);
   }));
   el.querySelectorAll('[data-editq]').forEach(b=> b.addEventListener('click', ()=> loadBqIntoForm(b.dataset.editq)));
   el.querySelectorAll('[data-delq]').forEach(b=> b.addEventListener('click', async ()=>{ if(confirm('Ta bort frågan?')) await sb.from('ps_bonus_questions').delete().eq('id', b.dataset.delq); }));
@@ -2303,7 +2327,7 @@ document.getElementById('setTeamCountBtn').addEventListener('click', async ()=>{
   const n = Math.max(2, Math.min(10, parseInt(document.getElementById('teamCountInput').value,10) || teams.length));
   if(n > teams.length){
     const rows = [];
-    for(let i=teams.length; i<n; i++) rows.push({ name:`Lag ${i+1}`, score:0, sort_order:i+1, join_code:genCode() });
+    for(let i=teams.length; i<n; i++) rows.push({ name:`Lag ${i+1}`, score:0, sort_order:i+1, join_code:genCode(), game_id: currentGame.id });
     await sb.from('ps_teams').insert(rows);
   } else if(n < teams.length){
     const toRemove = teams.slice(n);
@@ -2316,7 +2340,7 @@ document.getElementById('addTeamBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   if(teams.length>=10) return;
   const code = Math.random().toString(36).slice(2,6).toUpperCase();
-  await sb.from('ps_teams').insert({ name:`Lag ${teams.length+1}`, score:0, sort_order: teams.length+1, join_code: code });
+  await sb.from('ps_teams').insert({ name:`Lag ${teams.length+1}`, score:0, sort_order: teams.length+1, join_code: code, game_id: currentGame.id });
 });
 function renderManualScoreRows(){
   const el = document.getElementById('manualScoreRows');
@@ -2347,11 +2371,11 @@ document.getElementById('undoPointsBtn').addEventListener('click', undoLastPoint
 
 document.getElementById('finishGameBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ finished:true, current_journey_id:null, active_bonus_question_id:null, bonus_result_question_id:null }).eq('id',1);
+  await sb.from('ps_game_state').update({ finished:true, current_journey_id:null, active_bonus_question_id:null, bonus_result_question_id:null }).eq('id', gameStateRowId);
 });
 document.getElementById('unfinishGameBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ finished:false }).eq('id',1);
+  await sb.from('ps_game_state').update({ finished:false }).eq('id', gameStateRowId);
 });
 document.getElementById('resetGameBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
@@ -2363,7 +2387,7 @@ document.getElementById('resetGameBtn').addEventListener('click', async ()=>{
     current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
     active_bonus_question_id:null, bonus_result_question_id:null, countdown:null, finished:false, manually_paused:false,
     last_points_team_id:null, last_points_delta:null, last_points_note:null
-  }).eq('id',1);
+  }).eq('id', gameStateRowId);
 });
 
 document.getElementById('changePwBtn').addEventListener('click', async ()=>{
@@ -2521,7 +2545,7 @@ document.getElementById('buzzBtn').addEventListener('click', async ()=>{
   playBuzzerSoundForTeam(myTeam.id);
   const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
   if(!j) return; // just a test press before/between journeys — nothing to register
-  await sb.from('ps_game_state').update({ buzzed_team_id: myTeam.id, buzzed_at: new Date().toISOString(), resolved:false }).eq('id',1);
+  await sb.from('ps_game_state').update({ buzzed_team_id: myTeam.id, buzzed_at: new Date().toISOString(), resolved:false }).eq('id', gameStateRowId);
 });
 async function submitBonusAnswer(text){
   if(!myTeam || !gameState.active_bonus_question_id || !text) return;
@@ -2543,10 +2567,92 @@ document.getElementById('bonusSubmitBtn').addEventListener('click', ()=>{
 });
 
 /* ---------------- INIT ---------------- */
+async function loadGamesList(){
+  const { data } = await sb.from('ps_games').select('*').order('created_at');
+  games = data || [];
+}
+
+function renderGamePicker(){
+  const el = document.getElementById('gamePickerCards');
+  el.innerHTML = games.map(g=>`
+    <div class="mode-card" data-goto-game="${g.slug}">
+      <div class="icon">🚂</div>
+      <h3>${escapeHtml(g.name)}</h3>
+      <p>Öppna det här spelet.</p>
+    </div>`).join('');
+  el.querySelectorAll('[data-goto-game]').forEach(c=> c.addEventListener('click', ()=>{
+    goToGame(c.dataset.gotoGame);
+  }));
+}
+function goToGame(slug){
+  const url = new URL(location.href);
+  url.searchParams.set('game', slug);
+  url.searchParams.delete('mode');
+  location.href = url.toString(); // full reload — simplest way to cleanly re-init everything for the new game
+}
+document.getElementById('newGameBtn').addEventListener('click', async ()=>{
+  const name = prompt('Namn på det nya spelet (t.ex. "Sommarfesten 2026"):');
+  if(!name || !name.trim()) return;
+  const slug = name.trim().toLowerCase()
+    .replace(/[åä]/g,'a').replace(/ö/g,'o')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || ('spel-'+Date.now());
+  let finalSlug = slug, n = 1;
+  while(games.some(g=>g.slug===finalSlug)){ finalSlug = slug + '-' + (++n); }
+  const { data, error } = await sb.from('ps_games').insert({ slug: finalSlug, name: name.trim() }).select().single();
+  if(error){ alert('Kunde inte skapa spelet (måste vara inloggad som admin i något befintligt spel först).'); return; }
+  await sb.from('ps_game_state').insert({ game_id: data.id });
+  goToGame(finalSlug);
+});
+document.getElementById('switchGameBtn').addEventListener('click', ()=>{
+  const url = new URL(location.href);
+  url.searchParams.delete('game'); url.searchParams.delete('mode');
+  location.href = url.toString();
+});
+
+function applyGameBranding(){
+  const label = currentGame ? currentGame.name : 'PÅ SPÅRET';
+  ['selectSub','adminSub'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = label + (id==='adminSub' ? ' — adminpanel' : ' — välj läge');
+  });
+  ['selectEyebrow','adminEyebrow','spelareEyebrow'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = label;
+  });
+  document.getElementById('visningSub').textContent = label;
+}
+
 (async function init(){
   const { data:{ session } } = await sb.auth.getSession();
   isAdmin = !!session;
   updateAuthUI();
+
+  await loadGamesList();
+
+  if(!currentGameSlug){
+    // Truly fresh visit with no game and no mode in the URL — let them pick.
+    document.getElementById('screenGamePicker').classList.remove('hidden');
+    renderGamePicker();
+    return;
+  }
+
+  currentGame = games.find(g=>g.slug===currentGameSlug);
+  if(!currentGame){
+    // Unknown slug — fall back to the picker rather than a dead page.
+    document.getElementById('screenGamePicker').classList.remove('hidden');
+    renderGamePicker();
+    return;
+  }
+  { const url = new URL(location.href); url.searchParams.set('game', currentGame.slug); history.replaceState({}, '', url); }
+
+  let { data: gs } = await sb.from('ps_game_state').select('id').eq('game_id', currentGame.id).single();
+  if(!gs){
+    const { data: created } = await sb.from('ps_game_state').insert({ game_id: currentGame.id }).select('id').single();
+    gs = created;
+  }
+  gameStateRowId = gs.id;
+
+  applyGameBranding();
   clearForm();
   clearBqForm();
   await refetchAll();
@@ -2554,11 +2660,13 @@ document.getElementById('bonusSubmitBtn').addEventListener('click', ()=>{
     ['Select','Visning','Spelare','Admin'].forEach(s=>{
       document.getElementById('screen'+s).classList.toggle('hidden', ('screen'+s) !== ('screen'+currentMode.charAt(0).toUpperCase()+currentMode.slice(1)));
     });
+  } else {
+    document.getElementById('screenSelect').classList.remove('hidden');
   }
   renderAll();
 })();
 
-setInterval(refetchAll, 4000); // light polling fallback alongside realtime
+setInterval(()=>{ if(currentGame) refetchAll(); }, 4000); // light polling fallback alongside realtime
 </script>
 </body>
 </html>
