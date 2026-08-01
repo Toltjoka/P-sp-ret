@@ -325,6 +325,20 @@
   .mc-text{font-family:'Anton',sans-serif; font-weight:400; font-size:clamp(26px,6vw,54px); line-height:1.3; color:var(--chalk); max-width:900px; white-space:pre-line;}
   .mc-answer{font-family:'Space Mono',monospace; font-size:clamp(16px,2.8vw,22px); color:var(--green-ok); background:rgba(26,143,76,.15); border:1px solid rgba(26,143,76,.4); border-radius:10px; padding:10px 22px; margin-top:8px;}
   .mc-card textarea{width:100%; max-width:700px; margin-top:14px; font-size:clamp(14px,2.2vw,18px); min-height:160px; background:rgba(0,0,0,.25); border-color:rgba(255,182,18,.3);}
+  .mc-live{width:100%; max-width:700px; display:flex; flex-direction:column; gap:10px; margin-top:6px;}
+  .mc-live .mcl-status{font-family:'Space Mono',monospace; font-size:12px; color:var(--muted);}
+  .mc-live .mcl-teamrow{display:flex; justify-content:space-between; align-items:center; gap:10px; background:rgba(255,255,255,.05); border-radius:10px; padding:8px 12px;}
+  .mc-live .mcl-teamrow.out{opacity:.5;}
+  .mc-live .mcl-teamrow b{font-size:14px;}
+  .mc-live .mcl-btns{display:flex; gap:6px;}
+  .mc-live .mcl-btns button{font-size:12px; padding:6px 10px; border-radius:7px; border:none; cursor:pointer; font-weight:700;}
+  .mc-live .tp-correct{background:var(--green-ok); color:#fff;}
+  .mc-live .tp-wrong{background:var(--red); color:#fff;}
+  .mc-live .mcl-actions{display:flex; flex-wrap:wrap; gap:8px; justify-content:center;}
+  .mc-live .mcl-actions button{background:var(--gold); color:#081b30; border:none; border-radius:10px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer;}
+  .mc-live .mcl-actions button.ghost{background:transparent; border:1px solid rgba(244,246,242,.3); color:var(--chalk);}
+  .mc-live .mcl-answer-block{background:rgba(255,255,255,.05); border-radius:10px; padding:10px 12px; text-align:left; font-size:13px;}
+  .mc-live .mcl-answer-block .award-custom{margin-top:6px;}
   .mc-nav{display:flex; gap:10px; padding-top:12px; flex-shrink:0;}
   .mc-nav button{flex:1; background:var(--charcoal); border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:12px; padding:16px; font-size:15px; font-weight:700; cursor:pointer;}
   .mc-nav button:active{transform:scale(.98);}
@@ -777,6 +791,7 @@
     <div class="mc-badge" id="mcBadge"></div>
     <div class="mc-text" id="mcText"></div>
     <div class="mc-answer" id="mcAnswer"></div>
+    <div id="mcLive" class="mc-live"></div>
     <textarea id="mcNotes" placeholder="Egna anteckningar/förklaring..." rows="2"></textarea>
   </div>
   <div class="mc-nav">
@@ -1002,6 +1017,7 @@ function renderAll(){
   if(currentMode==='admin'){
     renderScoreboardInto('scoreboard', null);
     renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab(); renderBibliotekTab(); renderManusTab();
+    if(!document.getElementById('cardMode').classList.contains('hidden')) renderManusLiveControls();
   } else if(currentMode==='visning'){
     renderVisning();
   } else if(currentMode==='spelare'){
@@ -1880,6 +1896,100 @@ function renderManusCard(){
   document.getElementById('mcNotes').value = c.notes;
   document.getElementById('mcPrev').disabled = manusCardIdx===0;
   document.getElementById('mcNext').disabled = manusCardIdx>=manusCards.length-1;
+  renderManusLiveControls();
+}
+
+// Lets one person run the whole show from Manus alone: pause, award mellanfråga
+// points, mark rätt/fel, start/advance resor — all wired to the exact same
+// functions the Spela-tab uses, so a separate "domare" using Spela at the same
+// time stays perfectly in sync (same shared game state either way).
+function renderManusLiveControls(){
+  const host = document.getElementById('mcLive');
+  if(!host) return;
+  const focused = document.activeElement;
+  if(focused && focused.matches && focused.matches('#mcLive input')) return; // don't yank an in-progress point entry
+  const c = manusCards[manusCardIdx];
+  if(!c || !isAdmin){ host.innerHTML=''; return; }
+
+  if(c.type==='clue'){
+    const j = journeys.find(x=>x.id===c.journeyId);
+    if(!j){ host.innerHTML=''; return; }
+    const isLiveJourney = gameState.current_journey_id===c.journeyId;
+    if(!isLiveJourney){
+      host.innerHTML = `<div class="mcl-actions"><button data-mcl-start="${j.id}">▶ Starta den här resan</button></div>`;
+      host.querySelector('[data-mcl-start]').addEventListener('click', e=> startJourney(e.target.dataset.mclStart));
+      return;
+    }
+    if(gameState.countdown){
+      host.innerHTML = `<div class="mcl-status">🔴 LIVE — nedräkning: ${gameState.countdown}</div>`;
+      return;
+    }
+    const isThisClueShowing = (j.revealed-1)===c.clueIndex;
+    const out = new Set(gameState.out_teams||[]);
+    const teamRows = teams.map(t=>`
+      <div class="mcl-teamrow ${out.has(t.id)?'out':''}"><b>${escapeHtml(t.name)}</b>
+        <div class="mcl-btns">
+          <button class="tp-correct" data-mcl-correct="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>✅</button>
+          <button class="tp-wrong" data-mcl-wrong="${t.id}" ${(out.has(t.id)||j.is_done)?'disabled':''}>❌</button>
+        </div>
+      </div>`).join('');
+    host.innerHTML = `
+      <div class="mcl-status">${gameState.manually_paused ? '⏸ PAUSAD' : '🔴 LIVE'}${isThisClueShowing ? ' — det här är ledtråden som visas nu' : ' — annan ledtråd visas just nu ('+(j.revealed)+'/'+j.clues.length+')'}</div>
+      ${teamRows}
+      <div class="mcl-actions">
+        <button class="ghost" data-mcl-pause="1">${gameState.manually_paused ? '▶ Fortsätt' : '⏸ Pausa'}</button>
+        <button class="ghost" data-mcl-next="1" ${j.is_done?'disabled':''}>Nästa ledtråd →</button>
+        <button class="ghost" data-mcl-reveal="1">Visa svaret</button>
+        ${j.is_done ? `<button data-mcl-endjourney="1">🏁 Avsluta resa → mellanfråga</button>` : ''}
+      </div>`;
+    host.querySelectorAll('[data-mcl-correct]').forEach(b=> b.addEventListener('click', ()=> awardCorrect(b.dataset.mclCorrect)));
+    host.querySelectorAll('[data-mcl-wrong]').forEach(b=> b.addEventListener('click', ()=> markWrong(b.dataset.mclWrong)));
+    const pauseBtn = host.querySelector('[data-mcl-pause]'); if(pauseBtn) pauseBtn.addEventListener('click', async ()=>{ await sb.from('ps_game_state').update({ manually_paused: !gameState.manually_paused }).eq('id', gameStateRowId); });
+    const nextBtn = host.querySelector('[data-mcl-next]'); if(nextBtn) nextBtn.addEventListener('click', ()=> document.getElementById('nextClueBtn').click());
+    const revealBtn = host.querySelector('[data-mcl-reveal]'); if(revealBtn) revealBtn.addEventListener('click', ()=> document.getElementById('revealAnsBtn').click());
+    const endBtn = host.querySelector('[data-mcl-endjourney]'); if(endBtn) endBtn.addEventListener('click', ()=> document.getElementById('endJourneyBtn').click());
+    return;
+  }
+
+  if(c.type==='bonus'){
+    const q = bonusQuestions.find(x=>x.id===c.bqId);
+    if(!q){ host.innerHTML=''; return; }
+    if(gameState.bonus_result_question_id===q.id){
+      const rows = teams.map(t=>{
+        const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===q.id);
+        const pts = a && a.pending_points!=null ? a.pending_points : 0;
+        return `<div class="mcl-teamrow"><b>${escapeHtml(t.name)}</b><span>+${pts}p (${t.score||0}p totalt)</span></div>`;
+      }).join('');
+      host.innerHTML = `<div class="mcl-status">📊 Resultat visas</div>${rows}<div class="mcl-actions"><button data-mcl-continue="1">Fortsätt →</button></div>`;
+      host.querySelector('[data-mcl-continue]').addEventListener('click', ()=> document.getElementById('brContinueBtn').click());
+      return;
+    }
+    if(gameState.active_bonus_question_id!==q.id){
+      host.innerHTML = `<div class="mcl-actions"><button data-mcl-activate="${q.id}">▶ Aktivera den här frågan</button></div>`;
+      host.querySelector('[data-mcl-activate]').addEventListener('click', async ()=>{
+        await sb.from('ps_game_state').update({ active_bonus_question_id: q.id, bonus_result_question_id: null }).eq('id', gameStateRowId);
+      });
+      return;
+    }
+    const rows = teams.map(t=>{
+      const a = bonusAnswers.find(x=>x.team_id===t.id && x.question_id===q.id);
+      const answerDisplay = a ? formatBonusAnswerDisplay(q,a) : `<span style="color:var(--muted); font-style:italic;">Inget svar än</span>`;
+      const staged = a && a.pending_points!=null;
+      const controls = staged
+        ? `<span style="color:var(--green-ok); font-weight:700;">✅ ${a.pending_points}p</span> <button data-mcl-undo="${a.id}">Ångra</button>`
+        : (a ? `<div class="award-custom"><input type="number" class="mcl-amt" value="${q.points||2}" min="0" style="width:50px;"><button data-mcl-stage="${a.id}">Ge poäng</button></div>` : '');
+      return `<div class="mcl-answer-block"><b>${escapeHtml(t.name)}</b><div>${answerDisplay}</div>${controls}</div>`;
+    }).join('');
+    host.innerHTML = `<div class="mcl-status">🔴 LIVE — mellanfråga aktiv</div>${rows}<div class="mcl-actions"><button data-mcl-nextbonus="1">Visa resultat →</button></div>`;
+    host.querySelectorAll('[data-mcl-stage]').forEach(b=> b.addEventListener('click', async ()=>{
+      const amt = parseInt(b.parentElement.querySelector('.mcl-amt').value,10) || 0;
+      await sb.from('ps_bonus_answers').update({ pending_points: amt }).eq('id', b.dataset.mclStage);
+    }));
+    host.querySelectorAll('[data-mcl-undo]').forEach(b=> b.addEventListener('click', async ()=>{
+      await sb.from('ps_bonus_answers').update({ pending_points: null }).eq('id', b.dataset.mclUndo);
+    }));
+    host.querySelector('[data-mcl-nextbonus]').addEventListener('click', ()=> document.getElementById('nextBonusBtn').click());
+  }
 }
 async function saveManusCardNotes(){
   const c = manusCards[manusCardIdx];
