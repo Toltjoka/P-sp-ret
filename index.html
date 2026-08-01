@@ -1189,7 +1189,7 @@ function renderVisning(){
   renderCountdown('visningStage');
   syncAmbientSound(j);
   ensureFreezeTimer('visningStage', j);
-  syncManualPause('visningStage');
+  syncManualPause('visningStage', false);
   if(j && j.is_done && j.answer){
     answerEl.classList.remove('hidden');
     answerEl.innerHTML = `<div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div>`;
@@ -1301,7 +1301,7 @@ function renderPlayView(){
   renderTeamPlayGrid(j);
   ensureClueTimer(j);
   ensureFreezeTimer('adminStage', j);
-  syncManualPause('adminStage');
+  syncManualPause('adminStage', true);
   document.getElementById('pauseBtn').textContent = gameState.manually_paused ? '▶ Fortsätt' : '⏸ Pausa';
 }
 
@@ -1343,7 +1343,7 @@ function freezeStage(containerId){
 // Manual pause syncs to every screen: pauses that device's own video/scenery,
 // stops timers from ticking further, but doesn't forget where they were —
 // hitting "Fortsätt" picks up with the same time left on the clock.
-function syncManualPause(containerId){
+function syncManualPause(containerId, showBadge){
   const host = document.getElementById(containerId);
   if(!host) return;
   const stageEl = host.querySelector('.stage');
@@ -1353,10 +1353,9 @@ function syncManualPause(containerId){
     stageEl.classList.add('stage-frozen');
     const v = stageEl.querySelector('video.journey-video');
     if(v) v.pause();
-    if(!badge){ badge = document.createElement('div'); badge.className='pause-badge'; badge.textContent='⏸ PAUSAD'; stageEl.appendChild(badge); }
+    if(showBadge && !badge){ badge = document.createElement('div'); badge.className='pause-badge'; badge.textContent='⏸ PAUSAD'; stageEl.appendChild(badge); }
   } else {
     if(badge) badge.remove();
-    if(!stageEl.classList.contains('stage-frozen')){ /* frozen (end-of-journey) state stays as is */ }
   }
 }
 
