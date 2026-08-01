@@ -339,8 +339,6 @@
   .mc-live .mcl-actions button.ghost{background:transparent; border:1px solid rgba(244,246,242,.3); color:var(--chalk);}
   .mc-live .mcl-answer-block{background:rgba(255,255,255,.05); border-radius:10px; padding:10px 12px; text-align:left; font-size:13px;}
   .mc-live .mcl-answer-block .award-custom{margin-top:6px;}
-  .mcl-stage-preview{width:100%; display:flex; justify-content:center; margin-bottom:4px;}
-  .mcl-stage-preview .stage{max-width:100%;}
   .mcl-teamrow.buzzing{background:rgba(200,16,46,.28); border:1px solid rgba(200,16,46,.55);}
   .mc-nav{display:flex; gap:10px; padding-top:12px; flex-shrink:0;}
   .mc-nav button{flex:1; background:var(--charcoal); border:1px solid rgba(244,246,242,.25); color:var(--chalk); border-radius:12px; padding:16px; font-size:15px; font-weight:700; cursor:pointer;}
@@ -1925,13 +1923,8 @@ function renderManusLiveControls(){
       host.querySelector('[data-mcl-start]').addEventListener('click', e=> startJourney(e.target.dataset.mclStart));
       return;
     }
-    const liveKey = 'clue-live-' + j.id;
-    if(host.dataset.mode !== liveKey){
-      host.dataset.mode = liveKey;
-      host.innerHTML = `<div id="mclStagePreview" class="mcl-stage-preview"></div><div id="mclRest"></div>`;
-    }
-    renderStage(document.getElementById('mclStagePreview'), j, 'stage-md', true);
-    const rest = document.getElementById('mclRest');
+    host.dataset.mode = 'clue-live';
+    const rest = host;
     if(gameState.countdown){
       rest.innerHTML = `<div class="mcl-status">🔴 LIVE — nedräkning: ${gameState.countdown}</div>`;
       return;
