@@ -516,14 +516,7 @@
           <input type="text" id="jVideo" placeholder="https://... .mp4 (bil/tåg-vy genom rutan)">
           <button type="button" class="pick-btn" id="jVideoPick" title="Välj från biblioteket">🖼️</button>
         </div>
-        <p class="help" style="margin-top:-8px;">Finns en video här visas den istället för bilderna på enskilda ledtrådar.</p>
-
-        <label>Ankomstbild/-video (visas när sista ledtråden nås — den riktiga staden)</label>
-        <div class="url-with-picker" style="margin-bottom:14px;">
-          <input type="text" id="jArrival" placeholder="https://... bild eller video av den riktiga destinationen">
-          <button type="button" class="pick-btn" id="jArrivalPick" title="Välj från biblioteket">🖼️</button>
-        </div>
-        <p class="help" style="margin-top:-8px;">Byter automatiskt ut körvideon mot detta så fort resan når slutstationen.</p>
+        <p class="help" style="margin-top:-8px;">Finns en video här visas den istället för bilderna på enskilda ledtrådar. Rullar obrutet genom hela resan och fryser efter sista ledtrådens tid.</p>
 
         <label>Ljud under resans gång (från ljudbiblioteket)</label>
         <select id="jSound" style="margin-bottom:14px;"></select>
@@ -1034,12 +1027,10 @@ function stageShell(j, size, arrived){
       <div class="stage-empty"><div class="title">🚂 Väntar på nästa resa</div><div class="desc">Admin startar snart en ny resa att gissa.</div></div>
     </div>`;
   }
-  const showArrival = arrived && j.arrival_media_url;
-  const hasVideo = !showArrival && !!j.video_url;
+  const hasVideo = !!j.video_url;
   return `<div class="stage ${size}">
     <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
-    <div class="stage-photo ${(hasVideo||showArrival)?'show':''}">${
-      showArrival ? mediaTag(j.arrival_media_url,'') :
+    <div class="stage-photo ${hasVideo?'show':''}">${
       hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" muted loop playsinline preload="auto"></video>` : ''
     }</div>
     <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
@@ -1052,8 +1043,7 @@ function stageShell(j, size, arrived){
 function renderStage(container, j, size, live){
   size = size || 'stage-lg';
   const arrived = !!(j && j.revealed >= j.clues.length);
-  const showArrivalNow = !!(arrived && j && j.arrival_media_url);
-  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + showArrivalNow + '|' + (gameState.journey_started_at||'')) : ('empty|'+size);
+  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + size + '|' + (gameState.journey_started_at||'')) : ('empty|'+size);
   if(container.dataset.stageKey !== key){
     container.dataset.stageKey = key;
     container.dataset.lastImg = '';
@@ -1080,7 +1070,7 @@ function renderStage(container, j, size, live){
       photoWrap.innerHTML = wantImage ? mediaTag(wantImage,'') : '';
     }
   }
-  if(!showArrivalNow && j.video_url && j.revealed>0){
+  if(j.video_url && j.revealed>0){
     const v = container.querySelector('video.journey-video');
     if(v && v.paused) v.play().catch(()=>{});
   }
@@ -1692,7 +1682,6 @@ function clearForm(){
   document.getElementById('jAnswer').value = '';
   document.getElementById('jSeconds').value = 25;
   document.getElementById('jVideo').value = '';
-  document.getElementById('jArrival').value = '';
   populateJSoundSelect();
   document.getElementById('jSound').value = '';
   renderClueEditor([
@@ -1707,7 +1696,6 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   const answer = document.getElementById('jAnswer').value.trim();
   const seconds_per_clue = parseInt(document.getElementById('jSeconds').value,10) || 25;
   const video_url = document.getElementById('jVideo').value.trim() || null;
-  const arrival_media_url = document.getElementById('jArrival').value.trim() || null;
   const sound_id = document.getElementById('jSound').value || null;
   const clues = [...document.querySelectorAll('#clueEditorList .clue-editor-row')].map(row=>{
     const text = row.querySelector('textarea').value.trim();
@@ -1718,9 +1706,9 @@ document.getElementById('saveJourneyBtn').addEventListener('click', async ()=>{
   if(!answer){ alert('Skriv in ett svar innan du sparar.'); return; }
   if(clues.length < 2){ alert('Lägg till minst två ledtrådar.'); return; }
   if(editingId){
-    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, sound_id, revealed:0, is_done:false }).eq('id', editingId);
+    await sb.from('ps_journeys').update({ title, answer, clues, seconds_per_clue, video_url, sound_id, revealed:0, is_done:false }).eq('id', editingId);
   } else {
-    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, arrival_media_url, sound_id, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
+    await sb.from('ps_journeys').insert({ title, answer, clues, seconds_per_clue, video_url, sound_id, sort_order: journeys.length+1, start_points: clues[0].points, step:1 });
   }
   clearForm();
 });
@@ -1934,7 +1922,6 @@ document.getElementById('mediaPickerCancel').addEventListener('click', ()=> docu
 function pickBtnHTML(){ return `<button type="button" class="pick-btn" title="Välj från biblioteket">🖼️</button>`; }
 
 document.getElementById('jVideoPick').addEventListener('click', ()=> openMediaPicker(document.getElementById('jVideo')));
-document.getElementById('jArrivalPick').addEventListener('click', ()=> openMediaPicker(document.getElementById('jArrival')));
 document.getElementById('bqMediaPick').addEventListener('click', ()=> openMediaPicker(document.getElementById('bqMedia')));
 
 function renderJourneyAdmin(){
@@ -1962,7 +1949,6 @@ function loadJourneyIntoForm(id){
   document.getElementById('jAnswer').value = j.answer;
   document.getElementById('jSeconds').value = j.seconds_per_clue || 25;
   document.getElementById('jVideo').value = j.video_url || '';
-  document.getElementById('jArrival').value = j.arrival_media_url || '';
   populateJSoundSelect();
   document.getElementById('jSound').value = j.sound_id || '';
   renderClueEditor(j.clues);
