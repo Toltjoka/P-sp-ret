@@ -1757,11 +1757,16 @@ function renderManusTab(){
   document.getElementById('manusAdmin').classList.toggle('hidden', !isAdmin);
   if(!isAdmin) return;
 
-  const focused = document.activeElement;
-  const isEditingManus = focused && focused.matches && focused.matches('#manusAdmin textarea');
-  if(isEditingManus) return; // don't yank a note field out from under an active edit
-
   const el = document.getElementById('manusList');
+  // Only rebuild when the underlying data has actually changed (not on every
+  // poll/realtime tick) — this protects any in-progress typing OR text
+  // selection (e.g. trying to copy something) far more reliably than trying
+  // to detect focus, which mobile browsers don't always report consistently.
+  const sig = JSON.stringify(journeys.map(j=>({id:j.id,t:j.title,a:j.answer,s:j.seconds_per_clue,c:j.clues})))
+    + '|' + JSON.stringify(bonusQuestions.map(q=>({id:q.id,t:q.title,p:q.prompt,pr:q.parts,ra:q.reference_answer,n:q.notes,jid:q.journey_id,so:q.sort_order})));
+  if(el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+
   el.innerHTML = journeys.map(j=>{
     const bqs = bonusQuestions.filter(q=>q.journey_id===j.id).sort((a,b)=>a.sort_order-b.sort_order);
     return `<div class="panel manus-journey">
@@ -2217,8 +2222,9 @@ function renderTeamsTab(){
     document.getElementById('teamCountInput').value = teams.length || 5;
   }
   const el = document.getElementById('teamRows');
-  const focusedNameInput = document.activeElement && document.activeElement.matches && document.activeElement.matches('#teamRows input[data-id]') ? document.activeElement.dataset.id : null;
-  if(focusedNameInput){ renderManualScoreRows(); return; } // don't yank the field out from under an active edit
+  const sig = JSON.stringify(teams.map(t=>({id:t.id,n:t.name,c:t.join_code,s:t.sound_id}))) + '|' + sounds.length + '|' + isAdmin;
+  if(el.dataset.sig === sig){ renderManualScoreRows(); return; } // nothing relevant changed — don't disturb typing or text selection (e.g. copying a code)
+  el.dataset.sig = sig;
   el.innerHTML = teams.map((t,i)=>`
     <div class="team-row">
       <span class="num">${String(i+1).padStart(2,'0')}</span>
