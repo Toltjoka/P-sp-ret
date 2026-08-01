@@ -786,13 +786,21 @@
 </div>
 
 <script>
-window.addEventListener('error', function(e){
+function showCrashFallback(msg){
   if(document.getElementById('crashFallback')) return;
   const box = document.createElement('div');
   box.id = 'crashFallback';
-  box.style.cssText = 'position:fixed; inset:0; z-index:999; background:#04182e; color:#f4f6f2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px; text-align:center; font-family:sans-serif;';
-  box.innerHTML = '<div style="font-size:40px;">🚂💨</div><div style="font-size:17px; max-width:340px;">Något gick fel när sidan laddades — ofta bara en tillfällig nätverksträff.</div><button style="background:#ffb612; color:#081b30; border:none; border-radius:10px; padding:14px 28px; font-size:15px; font-weight:700;" onclick="location.reload()">🔄 Ladda om</button>';
+  box.style.cssText = 'position:fixed; inset:0; z-index:999; background:#04182e; color:#f4f6f2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; font-family:sans-serif;';
+  box.innerHTML = '<div style="font-size:40px;">🚂💨</div><div style="font-size:17px; max-width:340px;">Något gick fel när sidan laddades.</div>'
+    + (msg ? '<div style="font-size:12px; opacity:.6; max-width:340px; word-break:break-word;">'+msg+'</div>' : '')
+    + '<button style="background:#ffb612; color:#081b30; border:none; border-radius:10px; padding:14px 28px; font-size:15px; font-weight:700;" onclick="location.reload()">🔄 Ladda om</button>';
   document.body.appendChild(box);
+}
+window.addEventListener('error', function(e){
+  showCrashFallback(e.error ? (e.error.message||String(e.error)) : e.message);
+});
+window.addEventListener('unhandledrejection', function(e){
+  showCrashFallback(e.reason ? (e.reason.message||String(e.reason)) : 'okänt fel');
 });
 
 const SUPABASE_URL = 'https://fajtxhxwvnuhfkytdcqi.supabase.co';
@@ -2632,47 +2640,53 @@ function applyGameBranding(){
 }
 
 (async function init(){
-  const { data:{ session } } = await sb.auth.getSession();
-  isAdmin = !!session;
-  updateAuthUI();
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    isAdmin = !!session;
+    updateAuthUI();
 
-  await loadGamesList();
+    await loadGamesList();
 
-  if(!currentGameSlug){
-    // Truly fresh visit with no game and no mode in the URL — let them pick.
-    document.getElementById('screenGamePicker').classList.remove('hidden');
-    renderGamePicker();
-    return;
+    if(!currentGameSlug){
+      // Truly fresh visit with no game and no mode in the URL — let them pick.
+      document.getElementById('screenGamePicker').classList.remove('hidden');
+      renderGamePicker();
+      return;
+    }
+
+    currentGame = games.find(g=>g.slug===currentGameSlug);
+    if(!currentGame){
+      // Unknown slug — fall back to the picker rather than a dead page.
+      document.getElementById('screenGamePicker').classList.remove('hidden');
+      renderGamePicker();
+      return;
+    }
+    { const url = new URL(location.href); url.searchParams.set('game', currentGame.slug); history.replaceState({}, '', url); }
+
+    let { data: gs, error: gsErr } = await sb.from('ps_game_state').select('id').eq('game_id', currentGame.id).single();
+    if(gsErr || !gs){
+      const { data: created, error: createErr } = await sb.from('ps_game_state').insert({ game_id: currentGame.id }).select('id').single();
+      if(createErr || !created) throw new Error('Kunde inte skapa spelstatus: ' + (createErr ? createErr.message : 'okänt fel'));
+      gs = created;
+    }
+    gameStateRowId = gs.id;
+
+    applyGameBranding();
+    clearForm();
+    clearBqForm();
+    await refetchAll();
+    if(currentMode!=='select'){
+      ['Select','Visning','Spelare','Admin'].forEach(s=>{
+        document.getElementById('screen'+s).classList.toggle('hidden', ('screen'+s) !== ('screen'+currentMode.charAt(0).toUpperCase()+currentMode.slice(1)));
+      });
+    } else {
+      document.getElementById('screenSelect').classList.remove('hidden');
+    }
+    renderAll();
+  } catch(err){
+    console.error('Init failed:', err);
+    showCrashFallback(err && err.message ? err.message : String(err));
   }
-
-  currentGame = games.find(g=>g.slug===currentGameSlug);
-  if(!currentGame){
-    // Unknown slug — fall back to the picker rather than a dead page.
-    document.getElementById('screenGamePicker').classList.remove('hidden');
-    renderGamePicker();
-    return;
-  }
-  { const url = new URL(location.href); url.searchParams.set('game', currentGame.slug); history.replaceState({}, '', url); }
-
-  let { data: gs } = await sb.from('ps_game_state').select('id').eq('game_id', currentGame.id).single();
-  if(!gs){
-    const { data: created } = await sb.from('ps_game_state').insert({ game_id: currentGame.id }).select('id').single();
-    gs = created;
-  }
-  gameStateRowId = gs.id;
-
-  applyGameBranding();
-  clearForm();
-  clearBqForm();
-  await refetchAll();
-  if(currentMode!=='select'){
-    ['Select','Visning','Spelare','Admin'].forEach(s=>{
-      document.getElementById('screen'+s).classList.toggle('hidden', ('screen'+s) !== ('screen'+currentMode.charAt(0).toUpperCase()+currentMode.slice(1)));
-    });
-  } else {
-    document.getElementById('screenSelect').classList.remove('hidden');
-  }
-  renderAll();
 })();
 
 setInterval(()=>{ if(currentGame) refetchAll(); }, 4000); // light polling fallback alongside realtime
