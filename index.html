@@ -1052,7 +1052,7 @@ function stageShell(j, size, arrived){
 function renderStage(container, j, size, live){
   size = size || 'stage-lg';
   const arrived = !!(j && j.revealed >= j.clues.length);
-  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + arrived) : ('empty|'+size);
+  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + arrived + '|' + (gameState.journey_started_at||'')) : ('empty|'+size);
   if(container.dataset.stageKey !== key){
     container.dataset.stageKey = key;
     container.dataset.lastImg = '';
@@ -1254,7 +1254,8 @@ async function startJourney(id){
     await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', id);
     await sb.from('ps_game_state').update({
       current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[],
-      active_bonus_question_id:null, bonus_result_question_id:null, countdown:3
+      active_bonus_question_id:null, bonus_result_question_id:null, countdown:3,
+      journey_started_at: new Date().toISOString()
     }).eq('id',1);
     await sleep(1000);
     await sb.from('ps_game_state').update({ countdown:2 }).eq('id',1);
@@ -1472,7 +1473,7 @@ document.getElementById('resetJourneyBtn').addEventListener('click', async ()=>{
   const j = currentJourney(); if(!j) return;
   if(!confirm('Nollställa denna resa? Redan tilldelade poäng dras inte tillbaka automatiskt.')) return;
   await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
-  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[] }).eq('id',1);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[], journey_started_at: new Date().toISOString() }).eq('id',1);
 });
 document.getElementById('backToLibrary').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
