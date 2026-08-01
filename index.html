@@ -786,6 +786,15 @@
 </div>
 
 <script>
+window.addEventListener('error', function(e){
+  if(document.getElementById('crashFallback')) return;
+  const box = document.createElement('div');
+  box.id = 'crashFallback';
+  box.style.cssText = 'position:fixed; inset:0; z-index:999; background:#04182e; color:#f4f6f2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px; text-align:center; font-family:sans-serif;';
+  box.innerHTML = '<div style="font-size:40px;">🚂💨</div><div style="font-size:17px; max-width:340px;">Något gick fel när sidan laddades — ofta bara en tillfällig nätverksträff.</div><button style="background:#ffb612; color:#081b30; border:none; border-radius:10px; padding:14px 28px; font-size:15px; font-weight:700;" onclick="location.reload()">🔄 Ladda om</button>';
+  document.body.appendChild(box);
+});
+
 const SUPABASE_URL = 'https://fajtxhxwvnuhfkytdcqi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhanR4aHh3dm51aGZreXRkY3FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NTk3NjMsImV4cCI6MjA5OTMzNTc2M30.b7rMbVl_56fbRSESVO8HT5XuGoeshtY4jozfZ9T8Aqg';
 
