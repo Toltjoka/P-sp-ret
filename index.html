@@ -55,6 +55,7 @@
   .stage.stage-lg{height:min(56vh,460px); max-width:980px;}
   .stage.stage-frozen .layer-far, .stage.stage-frozen .layer-mid, .stage.stage-frozen .layer-near{animation-play-state:paused;}
   .stage.stage-frozen .stage-photo img{animation-play-state:paused;}
+  .pause-badge{position:absolute; top:14px; left:14px; z-index:9; background:rgba(200,16,46,.85); color:#fff; font-family:'Anton',sans-serif; font-size:15px; padding:6px 14px; border-radius:20px; letter-spacing:.03em;}
   .stage.stage-md{height:220px; max-width:900px;}
   .sky{position:absolute; inset:0; background:linear-gradient(180deg, #16324f 0%, #2c5a4f 45%, #1c4a30 70%, #123521 100%);}
   .layer{position:absolute; left:0; right:-10px; height:100%; background-repeat:repeat-x;}
@@ -466,6 +467,7 @@
       <div class="qtag" id="timerLabel" style="text-align:center; margin-top:8px;"></div>
 
       <div class="qactions" id="adminPlayActions">
+        <button class="btn btn-gold" id="pauseBtn" type="button">⏸ Pausa</button>
         <button class="btn btn-gold" id="nextClueBtn">Nästa ledtråd →</button>
         <button class="btn btn-ghost" id="revealAnsBtn">Visa svaret</button>
         <button class="btn btn-ghost" id="resetJourneyBtn">↺ Nollställ denna resa</button>
@@ -783,7 +785,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 /* ---------------- STATE ---------------- */
 let teams = [];
 let journeys = [];
-let gameState = { current_journey_id:null, buzzed_team_id:null, resolved:true, out_teams:[], buzzer_sound_url:null, active_bonus_question_id:null };
+let gameState = { current_journey_id:null, buzzed_team_id:null, resolved:true, out_teams:[], buzzer_sound_url:null, active_bonus_question_id:null, manually_paused:false };
 let bonusQuestions = [];
 let bonusAnswers = [];
 let sounds = [];
@@ -1187,6 +1189,7 @@ function renderVisning(){
   renderCountdown('visningStage');
   syncAmbientSound(j);
   ensureFreezeTimer('visningStage', j);
+  syncManualPause('visningStage');
   if(j && j.is_done && j.answer){
     answerEl.classList.remove('hidden');
     answerEl.innerHTML = `<div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div>`;
@@ -1250,7 +1253,7 @@ async function startJourney(id){
     await sb.from('ps_game_state').update({
       current_journey_id:id, resolved:true, buzzed_team_id:null, out_teams:[],
       active_bonus_question_id:null, bonus_result_question_id:null, countdown:3,
-      journey_started_at: new Date().toISOString()
+      journey_started_at: new Date().toISOString(), manually_paused:false
     }).eq('id',1);
     await sleep(1000);
     await sb.from('ps_game_state').update({ countdown:2 }).eq('id',1);
@@ -1298,6 +1301,8 @@ function renderPlayView(){
   renderTeamPlayGrid(j);
   ensureClueTimer(j);
   ensureFreezeTimer('adminStage', j);
+  syncManualPause('adminStage');
+  document.getElementById('pauseBtn').textContent = gameState.manually_paused ? '▶ Fortsätt' : '⏸ Pausa';
 }
 
 // After the LAST clue's own time runs out, freeze the video/scenery in place
@@ -1307,19 +1312,20 @@ let freezeTimers = {};
 function ensureFreezeTimer(containerId, j){
   const state = freezeTimers[containerId] || (freezeTimers[containerId] = {});
   const onLastClue = j && j.revealed>0 && j.revealed>=j.clues.length;
-  const shouldRun = onLastClue && !gameState.countdown && gameState.resolved!==false && !j.is_done && !state.frozen;
+  const shouldRun = onLastClue && !gameState.countdown && !gameState.manually_paused && gameState.resolved!==false && !j.is_done && !state.frozen;
   if(!shouldRun){
     if(state.intervalId){ clearInterval(state.intervalId); state.intervalId=null; }
-    if(!onLastClue || j.is_done){ state.frozen=false; state.journeyId=null; state.revealed=null; }
+    if(!onLastClue || j.is_done){ state.frozen=false; state.journeyId=null; state.revealed=null; state.remaining=null; }
     return;
   }
   if(state.journeyId===j.id && state.revealed===j.revealed && state.intervalId) return;
   if(state.intervalId){ clearInterval(state.intervalId); }
+  const resuming = state.journeyId===j.id && state.revealed===j.revealed && state.remaining!=null;
+  if(!resuming) state.remaining = j.seconds_per_clue || 25;
   state.journeyId = j.id; state.revealed = j.revealed; state.frozen = false;
-  let remaining = j.seconds_per_clue || 25;
   state.intervalId = setInterval(()=>{
-    remaining--;
-    if(remaining<=0){
+    state.remaining--;
+    if(state.remaining<=0){
       clearInterval(state.intervalId); state.intervalId=null;
       state.frozen = true;
       freezeStage(containerId);
@@ -1334,17 +1340,45 @@ function freezeStage(containerId){
   const v = host.querySelector('video.journey-video');
   if(v) v.pause();
 }
+// Manual pause syncs to every screen: pauses that device's own video/scenery,
+// stops timers from ticking further, but doesn't forget where they were —
+// hitting "Fortsätt" picks up with the same time left on the clock.
+function syncManualPause(containerId){
+  const host = document.getElementById(containerId);
+  if(!host) return;
+  const stageEl = host.querySelector('.stage');
+  if(!stageEl) return;
+  let badge = stageEl.querySelector('.pause-badge');
+  if(gameState.manually_paused){
+    stageEl.classList.add('stage-frozen');
+    const v = stageEl.querySelector('video.journey-video');
+    if(v) v.pause();
+    if(!badge){ badge = document.createElement('div'); badge.className='pause-badge'; badge.textContent='⏸ PAUSAD'; stageEl.appendChild(badge); }
+  } else {
+    if(badge) badge.remove();
+    if(!stageEl.classList.contains('stage-frozen')){ /* frozen (end-of-journey) state stays as is */ }
+  }
+}
 
 function ensureClueTimer(j){
-  const shouldRun = j && !gameState.countdown && gameState.resolved!==false && !j.is_done && j.revealed>0 && j.revealed<j.clues.length;
-  if(!shouldRun){ clearClueTimer(); updateTimerLabel(null); return; }
+  const shouldRun = j && !gameState.countdown && !gameState.manually_paused && gameState.resolved!==false && !j.is_done && j.revealed>0 && j.revealed<j.clues.length;
+  if(!shouldRun){
+    if(timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId=null; }
+    if(!gameState.manually_paused){ timerJourneyId=null; timerRevealed=null; updateTimerLabel(null); }
+    else { updateTimerLabel(timerRemaining); }
+    const w=document.getElementById('warn321'); if(w) w.classList.add('hidden');
+    return;
+  }
   if(timerJourneyId===j.id && timerRevealed===j.revealed && timerIntervalId){ return; }
-  clearClueTimer();
+  const resuming = timerJourneyId===j.id && timerRevealed===j.revealed && timerRemaining!=null;
+  if(timerIntervalId){ clearInterval(timerIntervalId); timerIntervalId=null; }
+  if(!resuming){
+    timerRemaining = j.seconds_per_clue || 25;
+    timerTotal = timerRemaining;
+    updateTimerFill(1);
+  }
   timerJourneyId = j.id; timerRevealed = j.revealed;
-  timerRemaining = j.seconds_per_clue || 25;
-  timerTotal = timerRemaining;
   updateTimerLabel(timerRemaining);
-  updateTimerFill(1);
   updateWarn321(timerRemaining);
   timerIntervalId = setInterval(()=>{
     timerRemaining--;
@@ -1381,6 +1415,10 @@ async function doAutoNextClue(){
   await sb.from('ps_journeys').update({ revealed: j.revealed+1 }).eq('id', j.id);
 }
 
+document.getElementById('pauseBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  await sb.from('ps_game_state').update({ manually_paused: !gameState.manually_paused }).eq('id',1);
+});
 document.getElementById('nextClueBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   const j = currentJourney();
@@ -1468,11 +1506,11 @@ document.getElementById('resetJourneyBtn').addEventListener('click', async ()=>{
   const j = currentJourney(); if(!j) return;
   if(!confirm('Nollställa denna resa? Redan tilldelade poäng dras inte tillbaka automatiskt.')) return;
   await sb.from('ps_journeys').update({ revealed:0, is_done:false }).eq('id', j.id);
-  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[], journey_started_at: new Date().toISOString() }).eq('id',1);
+  await sb.from('ps_game_state').update({ resolved:true, buzzed_team_id:null, out_teams:[], journey_started_at: new Date().toISOString(), manually_paused:false }).eq('id',1);
 });
 document.getElementById('backToLibrary').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
-  await sb.from('ps_game_state').update({ current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[] }).eq('id',1);
+  await sb.from('ps_game_state').update({ current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[], manually_paused:false }).eq('id',1);
 });
 
 // End the journey and immediately kick off its first mellanfråga
@@ -2318,7 +2356,7 @@ document.getElementById('resetGameBtn').addEventListener('click', async ()=>{
   await sb.from('ps_bonus_answers').delete().neq('id','00000000-0000-0000-0000-000000000000');
   await sb.from('ps_game_state').update({
     current_journey_id:null, resolved:true, buzzed_team_id:null, out_teams:[],
-    active_bonus_question_id:null, bonus_result_question_id:null, countdown:null, finished:false,
+    active_bonus_question_id:null, bonus_result_question_id:null, countdown:null, finished:false, manually_paused:false,
     last_points_team_id:null, last_points_delta:null, last_points_note:null
   }).eq('id',1);
 });
