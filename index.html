@@ -53,6 +53,8 @@
     background:#0a1f14; margin:0 auto;
   }
   .stage.stage-lg{height:min(56vh,460px); max-width:980px;}
+  .stage.stage-frozen .layer-far, .stage.stage-frozen .layer-mid, .stage.stage-frozen .layer-near{animation-play-state:paused;}
+  .stage.stage-frozen .stage-photo img{animation-play-state:paused;}
   .stage.stage-md{height:220px; max-width:900px;}
   .sky{position:absolute; inset:0; background:linear-gradient(180deg, #16324f 0%, #2c5a4f 45%, #1c4a30 70%, #123521 100%);}
   .layer{position:absolute; left:0; right:-10px; height:100%; background-repeat:repeat-x;}
@@ -1189,6 +1191,7 @@ function renderVisning(){
   renderStage(stageEl, j, 'stage-full');
   renderCountdown('visningStage');
   syncAmbientSound(j);
+  ensureFreezeTimer('visningStage', j);
   if(j && j.is_done && j.answer){
     answerEl.classList.remove('hidden');
     answerEl.innerHTML = `<div class="label">Rätt svar</div><div class="ans">${escapeHtml(j.answer)}</div>`;
@@ -1298,6 +1301,42 @@ function renderPlayView(){
   }
   renderTeamPlayGrid(j);
   ensureClueTimer(j);
+  ensureFreezeTimer('adminStage', j);
+}
+
+// After the LAST clue's own time runs out, freeze the video/scenery in place
+// (each screen — admin and visning — freezes its own video independently)
+// instead of looping forever. Admin then reveals the real answer manually.
+let freezeTimers = {};
+function ensureFreezeTimer(containerId, j){
+  const state = freezeTimers[containerId] || (freezeTimers[containerId] = {});
+  const onLastClue = j && j.revealed>0 && j.revealed>=j.clues.length;
+  const shouldRun = onLastClue && !gameState.countdown && gameState.resolved!==false && !j.is_done && !state.frozen;
+  if(!shouldRun){
+    if(state.intervalId){ clearInterval(state.intervalId); state.intervalId=null; }
+    if(!onLastClue || j.is_done){ state.frozen=false; state.journeyId=null; state.revealed=null; }
+    return;
+  }
+  if(state.journeyId===j.id && state.revealed===j.revealed && state.intervalId) return;
+  if(state.intervalId){ clearInterval(state.intervalId); }
+  state.journeyId = j.id; state.revealed = j.revealed; state.frozen = false;
+  let remaining = j.seconds_per_clue || 25;
+  state.intervalId = setInterval(()=>{
+    remaining--;
+    if(remaining<=0){
+      clearInterval(state.intervalId); state.intervalId=null;
+      state.frozen = true;
+      freezeStage(containerId);
+    }
+  }, 1000);
+}
+function freezeStage(containerId){
+  const host = document.getElementById(containerId);
+  if(!host) return;
+  const stageEl = host.querySelector('.stage');
+  if(stageEl) stageEl.classList.add('stage-frozen');
+  const v = host.querySelector('video.journey-video');
+  if(v) v.pause();
 }
 
 function ensureClueTimer(j){
