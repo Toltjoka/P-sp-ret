@@ -1052,7 +1052,8 @@ function stageShell(j, size, arrived){
 function renderStage(container, j, size, live){
   size = size || 'stage-lg';
   const arrived = !!(j && j.revealed >= j.clues.length);
-  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + arrived + '|' + (gameState.journey_started_at||'')) : ('empty|'+size);
+  const showArrivalNow = !!(arrived && j && j.arrival_media_url);
+  const key = j ? (j.id + '|' + (j.video_url||'') + '|' + (j.arrival_media_url||'') + '|' + size + '|' + showArrivalNow + '|' + (gameState.journey_started_at||'')) : ('empty|'+size);
   if(container.dataset.stageKey !== key){
     container.dataset.stageKey = key;
     container.dataset.lastImg = '';
@@ -1079,7 +1080,7 @@ function renderStage(container, j, size, live){
       photoWrap.innerHTML = wantImage ? mediaTag(wantImage,'') : '';
     }
   }
-  if(!arrived && j.video_url && j.revealed>0){
+  if(!showArrivalNow && j.video_url && j.revealed>0){
     const v = container.querySelector('video.journey-video');
     if(v && v.paused) v.play().catch(()=>{});
   }
