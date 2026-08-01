@@ -1040,7 +1040,7 @@ function stageShell(j, size, arrived){
     <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
     <div class="stage-photo ${(hasVideo||showArrival)?'show':''}">${
       showArrival ? mediaTag(j.arrival_media_url,'') :
-      hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" autoplay muted loop playsinline></video>` : ''
+      hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" muted loop playsinline preload="auto"></video>` : ''
     }</div>
     <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
     <div class="stage-points"></div>
@@ -1078,6 +1078,10 @@ function renderStage(container, j, size, live){
       photoWrap.classList.toggle('show', !!wantImage);
       photoWrap.innerHTML = wantImage ? mediaTag(wantImage,'') : '';
     }
+  }
+  if(!arrived && j.video_url && j.revealed>0){
+    const v = container.querySelector('video.journey-video');
+    if(v && v.paused) v.play().catch(()=>{});
   }
 
   const textWrap = container.querySelector('.stage-text-wrap');
