@@ -2423,8 +2423,10 @@ function renderSpelare(){
 
   if(j && gameState.countdown){
     btn.disabled = true; statusEl.textContent = `Gör er redo... ${gameState.countdown}`;
-  } else if(!j || j.is_done){
-    btn.disabled = true; statusEl.textContent = j && j.is_done ? '✅ Resan är avgjord.' : '';
+  } else if(!j){
+    btn.disabled = false; statusEl.textContent = '🔊 Testa er knapp — hör hur den låter!';
+  } else if(j.is_done){
+    btn.disabled = true; statusEl.textContent = '✅ Resan är avgjord.';
   } else if(iAmOut){
     btn.disabled = true; statusEl.textContent = 'Ni har redan gissat fel på denna resa.';
   } else if(someoneBuzzed){
@@ -2511,6 +2513,8 @@ document.getElementById('myTeamNameSaveBtn').addEventListener('click', async ()=
 document.getElementById('buzzBtn').addEventListener('click', async ()=>{
   if(!myTeam) return;
   playBuzzerSoundForTeam(myTeam.id);
+  const j = journeys.find(x=>x.id===gameState.current_journey_id) || null;
+  if(!j) return; // just a test press before/between journeys — nothing to register
   await sb.from('ps_game_state').update({ buzzed_team_id: myTeam.id, buzzed_at: new Date().toISOString(), resolved:false }).eq('id',1);
 });
 async function submitBonusAnswer(text){
