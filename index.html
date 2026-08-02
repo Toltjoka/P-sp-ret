@@ -55,6 +55,12 @@
   .stage.stage-lg{height:min(56vh,460px); max-width:980px;}
   .stage.stage-frozen .layer-far, .stage.stage-frozen .layer-mid, .stage.stage-frozen .layer-near{animation-play-state:paused;}
   .stage.stage-frozen .stage-photo img{animation-play-state:paused;}
+  .preload-row{display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:13px;}
+  .preload-row .pr-name{flex-shrink:0; width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .preload-row .pr-bar-wrap{flex:1; height:8px; background:rgba(255,255,255,.1); border-radius:6px; overflow:hidden;}
+  .preload-row .pr-bar{height:100%; background:var(--gold-bright); width:0%; transition:width .2s ease;}
+  .preload-row .pr-pct{flex-shrink:0; width:70px; text-align:right; font-family:'Space Mono',monospace; color:var(--muted);}
+  .preload-row.done .pr-pct{color:var(--green-ok);}
   .pause-badge{position:absolute; top:14px; left:14px; z-index:9; background:rgba(200,16,46,.85); color:#fff; font-family:'Anton',sans-serif; font-size:15px; padding:6px 14px; border-radius:20px; letter-spacing:.03em;}
   .stage.stage-md{height:220px; max-width:900px;}
   .sky{position:absolute; inset:0; background:linear-gradient(180deg, #16324f 0%, #2c5a4f 45%, #1c4a30 70%, #123521 100%);}
@@ -455,6 +461,8 @@
     <div id="library" class="panel">
       <h2>Välj en resa</h2>
       <p class="help" id="libraryHelp">Klicka "Starta resa" för att köra den.</p>
+      <button class="btn btn-gold" id="preloadAllBtn" type="button" style="width:100%; margin-bottom:14px;">📥 Förladda alla resors videor</button>
+      <div id="preloadStatus"></div>
       <div id="journeyGrid" class="journey-grid"></div>
     </div>
 
@@ -929,6 +937,64 @@ function preloadJourneyVideos(){
   v.style.cssText = 'position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; left:-9999px;';
   document.body.appendChild(v);
 }
+
+// Manual "preload everything" — downloads each journey's video fully into
+// memory (not just enough to start playing) and keeps it as a local blob.
+// Once done, starting that resa uses the local copy directly: zero network
+// needed at showtime, no buffering no matter how bad the connection gets.
+let videoBlobCache = {};
+let preloadInProgress = false;
+async function preloadAllVideosFully(){
+  if(preloadInProgress) return;
+  preloadInProgress = true;
+  const targets = journeys.filter(j=>j.video_url);
+  const statusEl = document.getElementById('preloadStatus');
+  const btn = document.getElementById('preloadAllBtn');
+  btn.disabled = true; btn.textContent = '📥 Förladdar...';
+  statusEl.innerHTML = targets.map(j=>`
+    <div class="preload-row" id="pr-${j.id}">
+      <span class="pr-name">${escapeHtml(j.title)}</span>
+      <div class="pr-bar-wrap"><div class="pr-bar"></div></div>
+      <span class="pr-pct">0%</span>
+    </div>`).join('') || `<p class="help">Inga resor med video att förladda.</p>`;
+
+  for(const j of targets){
+    const row = document.getElementById('pr-'+j.id);
+    const bar = row.querySelector('.pr-bar');
+    const pct = row.querySelector('.pr-pct');
+    if(videoBlobCache[j.video_url]){
+      bar.style.width='100%'; pct.textContent='✅ klar (cache)'; row.classList.add('done');
+      continue;
+    }
+    try{
+      const resp = await fetch(j.video_url);
+      const total = parseInt(resp.headers.get('content-length')||'0',10);
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+      while(true){
+        const {done, value} = await reader.read();
+        if(done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if(total){
+          const p = Math.round(loaded/total*100);
+          bar.style.width = p+'%'; pct.textContent = p+'%';
+        } else {
+          pct.textContent = Math.round(loaded/1e6)+' MB';
+        }
+      }
+      const blob = new Blob(chunks);
+      videoBlobCache[j.video_url] = URL.createObjectURL(blob);
+      bar.style.width='100%'; pct.textContent='✅ klar'; row.classList.add('done');
+    } catch(e){
+      pct.textContent = '❌ fel'; console.error('Preload misslyckades för', j.title, e);
+    }
+  }
+  btn.disabled = false; btn.textContent = '📥 Förladda alla resors videor';
+  preloadInProgress = false;
+}
+document.getElementById('preloadAllBtn').addEventListener('click', preloadAllVideosFully);
 async function fetchGameState(){ const {data} = await sb.from('ps_game_state').select('*').eq('id', gameStateRowId).single(); if(data) gameState = data; }
 async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').eq('game_id', currentGame.id).order('sort_order'); bonusQuestions = data||[]; }
 async function fetchSounds(){ const {data} = await sb.from('ps_sounds').select('*').order('created_at'); sounds = data||[]; }
@@ -1090,10 +1156,11 @@ function stageShell(j, size, arrived){
     </div>`;
   }
   const hasVideo = !!j.video_url;
+  const videoSrc = hasVideo ? (videoBlobCache[j.video_url] || j.video_url) : '';
   return `<div class="stage ${size}">
     <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
     <div class="stage-photo ${hasVideo?'show':''}">${
-      hasVideo ? `<video class="journey-video" src="${escapeHtml(j.video_url)}" muted loop playsinline preload="auto"></video>` : ''
+      hasVideo ? `<video class="journey-video" src="${escapeHtml(videoSrc)}" muted loop playsinline preload="auto"></video>` : ''
     }</div>
     <div class="glass"></div><div class="rivet r1"></div><div class="rivet r2"></div><div class="rivet r3"></div><div class="rivet r4"></div>
     <div class="stage-points"></div>
