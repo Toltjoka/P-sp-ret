@@ -916,16 +916,18 @@ async function fetchJourneys(){ const {data} = await sb.from('ps_journeys').sele
 // difference between "buffers for the first ledtråd" and "plays instantly".
 const preloadedVideoUrls = new Set();
 function preloadJourneyVideos(){
-  journeys.forEach(j=>{
-    if(!j.video_url || preloadedVideoUrls.has(j.video_url)) return;
-    preloadedVideoUrls.add(j.video_url);
-    const v = document.createElement('video');
-    v.src = j.video_url;
-    v.preload = 'auto';
-    v.muted = true;
-    v.style.cssText = 'position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; left:-9999px;';
-    document.body.appendChild(v);
-  });
+  // Only the next journey still to be played gets preloaded — not all of them
+  // at once. On a slow/shared connection, downloading 2-3 large videos in
+  // parallel just splits the bandwidth and makes every one of them slower.
+  const next = journeys.filter(j=>j.video_url && !j.is_done).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0))[0];
+  if(!next || preloadedVideoUrls.has(next.video_url)) return;
+  preloadedVideoUrls.add(next.video_url);
+  const v = document.createElement('video');
+  v.src = next.video_url;
+  v.preload = 'auto';
+  v.muted = true;
+  v.style.cssText = 'position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; left:-9999px;';
+  document.body.appendChild(v);
 }
 async function fetchGameState(){ const {data} = await sb.from('ps_game_state').select('*').eq('id', gameStateRowId).single(); if(data) gameState = data; }
 async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').eq('game_id', currentGame.id).order('sort_order'); bonusQuestions = data||[]; }
