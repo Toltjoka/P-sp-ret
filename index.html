@@ -944,6 +944,10 @@ function preloadJourneyVideos(){
 // needed at showtime, no buffering no matter how bad the connection gets.
 let videoBlobCache = {};
 let preloadInProgress = false;
+function guessVideoMime(url){
+  const ext = (url.split('?')[0].split('.').pop()||'').toLowerCase();
+  return { mp4:'video/mp4', mov:'video/quicktime', webm:'video/webm', m4v:'video/x-m4v' }[ext] || 'video/mp4';
+}
 async function preloadAllVideosFully(){
   if(preloadInProgress) return;
   preloadInProgress = true;
@@ -969,6 +973,7 @@ async function preloadAllVideosFully(){
     try{
       const resp = await fetch(j.video_url);
       const total = parseInt(resp.headers.get('content-length')||'0',10);
+      const mimeType = resp.headers.get('content-type') || guessVideoMime(j.video_url);
       const reader = resp.body.getReader();
       const chunks = [];
       let loaded = 0;
@@ -984,7 +989,7 @@ async function preloadAllVideosFully(){
           pct.textContent = Math.round(loaded/1e6)+' MB';
         }
       }
-      const blob = new Blob(chunks);
+      const blob = new Blob(chunks, { type: mimeType });
       videoBlobCache[j.video_url] = URL.createObjectURL(blob);
       bar.style.width='100%'; pct.textContent='✅ klar'; row.classList.add('done');
     } catch(e){
