@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root{
     --turf-dark:#04182e; --turf:#0a2647; --turf-light:#0f3a68;
@@ -64,6 +66,22 @@
   .mini-train .smoke{position:absolute; bottom:30px; left:3px; width:7px; height:7px; background:rgba(244,246,242,.55); border-radius:50%; animation:smokeUp 2s ease-out infinite;}
   @keyframes trainMove{ from{ left:-70px; } to{ left:110%; } }
   @keyframes smokeUp{ 0%{ transform:translateY(0) scale(1); opacity:.55; } 100%{ transform:translateY(-24px) scale(2.2); opacity:0; } }
+
+  /* ---- Kartfråga (map pin game) ---- */
+  .map-round-box{background:var(--charcoal); border:1px solid rgba(255,182,18,.3); border-radius:16px; padding:18px; margin-bottom:16px;}
+  .map-round-img{width:100%; max-height:340px; object-fit:cover; border-radius:12px; margin-bottom:14px; display:block;}
+  .map-leaflet{width:100%; height:360px; border-radius:12px; overflow:hidden; border:1px solid rgba(255,182,18,.25);}
+  .map-leaflet.tall{height:460px;}
+  .map-submit-row{display:flex; gap:10px; align-items:center; margin-top:12px; justify-content:center;}
+  .map-locked-msg{text-align:center; color:var(--gold-bright); font-weight:700; margin-top:10px;}
+  .map-result-list{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
+  .map-result-row{display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,.05); border-radius:10px; padding:10px 14px; font-size:14px;}
+  .map-result-row.winner{background:rgba(26,143,76,.22); border:1px solid rgba(26,143,76,.5);}
+  .map-result-row .dist{font-family:'Space Mono',monospace; color:var(--muted);}
+  .map-result-row.winner .dist{color:var(--green-ok); font-weight:700;}
+  .map-winner-banner{text-align:center; font-family:'Anton',sans-serif; font-size:clamp(22px,4vw,34px); color:var(--gold-bright); margin:10px 0;}
+  #visningMapWrap .map-leaflet{height:min(70vh,700px);}
+  #visningMapWrap .map-round-img{max-height:60vh;}
   .preload-row{display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:13px;}
   .preload-row .pr-name{flex-shrink:0; width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .preload-row .pr-bar-wrap{flex:1; height:8px; background:rgba(255,255,255,.1); border-radius:6px; overflow:hidden;}
@@ -436,6 +454,15 @@
       <button class="btn btn-gold" id="bonusSubmitBtn" style="width:100%; margin-top:10px;">Skicka svar</button>
       <div class="player-status" id="bonusStatus"></div>
     </div>
+    <div id="playerMapBox" class="map-round-box hidden">
+      <img id="playerMapImg" class="map-round-img" src="" alt="">
+      <p class="help" style="text-align:center;">Var i världen är bilden ifrån? Peka/klicka på kartan för att sätta er pin — ni kan flytta den innan ni skickar in.</p>
+      <div id="playerMapLeaflet" class="map-leaflet tall"></div>
+      <div class="map-submit-row">
+        <button class="btn btn-gold" id="playerMapSubmitBtn" disabled>Skicka in pin</button>
+      </div>
+      <div class="map-locked-msg hidden" id="playerMapLockedMsg">📍 Pin inskickad — väntar på de andra lagen…</div>
+    </div>
     <div style="text-align:center; margin-top:24px;"><button class="mode-switch" data-back="1">← Byt läge / lag</button></div>
   </div>
 </div>
@@ -461,6 +488,7 @@
     <button data-tab="spela" class="active">🚂 Spela</button>
     <button data-tab="resor">✏️ Resor</button>
     <button data-tab="mellan">❓ Mellanfrågor</button>
+    <button data-tab="karta">🗺️ Kartfråga</button>
     <button data-tab="manus">📜 Manus</button>
     <button data-tab="bibliotek">📚 Bibliotek</button>
     <button data-tab="lag">🏈 Lag & poäng</button>
@@ -643,6 +671,31 @@
       <div class="panel hidden" id="bqAnswersPanel">
         <h2>Svar på aktiv fråga</h2>
         <div id="bqAnswersList"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-karta" class="hidden">
+    <div id="kartaLocked" class="panel hidden">
+      <h2>Kartfråga</h2>
+      <div class="locked-note">🔒 Logga in som admin för att hantera kartfrågan.</div>
+    </div>
+    <div id="kartaAdmin" class="hidden">
+      <div class="panel">
+        <h2>🗺️ Kartfråga — pinga rätt plats</h2>
+        <p class="help">Visa en bild, lagen sätter en pin på kartan där de tror bilden är ifrån. Laget närmast rätt plats får poäng. 5 omgångar, redigerbara nedan.</p>
+        <div id="mapRoundEditorList"></div>
+      </div>
+      <div class="panel hidden" id="mapControlPanel">
+        <h2 id="mapControlHeading">Kartfråga pågår</h2>
+        <div id="mapControlImg"></div>
+        <div id="mapControlStatus" class="help"></div>
+        <div id="mapControlLeaflet" class="map-leaflet"></div>
+        <div id="mapControlResults" class="map-result-list"></div>
+        <div class="row-actions" style="margin-top:14px;">
+          <button class="btn btn-gold" id="mapShowResultBtn" type="button">Visa resultat →</button>
+          <button class="btn btn-ghost" id="mapEndRoundBtn" type="button">✕ Avsluta den här omgången</button>
+        </div>
       </div>
     </div>
   </section>
@@ -839,6 +892,11 @@ let bonusQuestions = [];
 let bonusAnswers = [];
 let sounds = [];
 let media = [];
+let mapRounds = [];
+let mapGuesses = [];
+let leafletMaps = {}; // containerId -> L.map instance
+let myMapMarker = null; // player's own pending pin (Leaflet marker)
+let mapRoundSubmitted = false;
 let isAdmin = false;
 let editingId = null;
 let lastBuzzedAt = null;
@@ -919,7 +977,7 @@ document.querySelectorAll('.nav button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    ['spela','resor','mellan','manus','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
+    ['spela','resor','mellan','karta','manus','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
     renderAll();
   });
 });
@@ -1013,6 +1071,87 @@ async function fetchGameState(){ const {data} = await sb.from('ps_game_state').s
 async function fetchBonusQuestions(){ const {data} = await sb.from('ps_bonus_questions').select('*').eq('game_id', currentGame.id).order('sort_order'); bonusQuestions = data||[]; }
 async function fetchSounds(){ const {data} = await sb.from('ps_sounds').select('*').order('created_at'); sounds = data||[]; }
 async function fetchMedia(){ const {data} = await sb.from('ps_media').select('*').order('created_at', {ascending:false}); media = data||[]; }
+async function fetchMapRounds(){ const {data} = await sb.from('ps_map_rounds').select('*').eq('game_id', currentGame.id).order('sort_order'); mapRounds = data||[]; }
+async function fetchMapGuesses(){
+  const roundId = gameState.active_map_round_id || gameState.map_result_round_id;
+  if(!roundId){ mapGuesses = []; return; }
+  const { data } = await sb.from('ps_map_guesses').select('*').eq('round_id', roundId);
+  mapGuesses = data||[];
+}
+function haversineKm(lat1,lng1,lat2,lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function ensureLeafletMap(containerId, opts){
+  opts = opts || {};
+  if(leafletMaps[containerId]) return leafletMaps[containerId];
+  const el = document.getElementById(containerId);
+  if(!el) return null;
+  const map = L.map(containerId, { worldCopyJump:true }).setView(opts.center||[20,10], opts.zoom||2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19
+  }).addTo(map);
+  leafletMaps[containerId] = map;
+  return map;
+}
+function destroyLeafletMap(containerId){
+  if(leafletMaps[containerId]){ leafletMaps[containerId].remove(); delete leafletMaps[containerId]; }
+}
+function teamColor(idx){
+  const palette = ['#ffb612','#0080c6','#ff5a5f','#2ecc71','#a29bfe','#ff9f43','#00d2d3','#e84393'];
+  return palette[idx % palette.length];
+}
+function coloredDivIcon(color, label){
+  return L.divIcon({
+    className:'',
+    html:`<div style="background:${color}; width:22px; height:22px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.4);"></div>${label?`<div style="position:absolute; top:24px; left:50%; transform:translateX(-50%); white-space:nowrap; background:rgba(0,0,0,.7); color:#fff; font-size:11px; padding:2px 6px; border-radius:5px;">${label}</div>`:''}`,
+    iconSize:[22,22], iconAnchor:[11,22]
+  });
+}
+
+function renderPlayerMapRound(){
+  const round = mapRounds.find(r=>r.id===gameState.active_map_round_id);
+  if(!round || !myTeam) return;
+  document.getElementById('playerMapImg').src = round.image_url || '';
+  const myGuess = mapGuesses.find(g=>g.team_id===myTeam.id && g.round_id===round.id);
+  const submitBtn = document.getElementById('playerMapSubmitBtn');
+  const lockedMsg = document.getElementById('playerMapLockedMsg');
+
+  if(myGuess){
+    lockedMsg.classList.remove('hidden');
+    submitBtn.classList.add('hidden');
+    const map = ensureLeafletMap('playerMapLeaflet', { center:[myGuess.lat, myGuess.lng], zoom:5 });
+    if(map && !map._myLockedMarker){
+      L.marker([myGuess.lat, myGuess.lng], { icon: coloredDivIcon('#ffb612') }).addTo(map);
+      map._myLockedMarker = true;
+      map.dragging.disable(); map.scrollWheelZoom.disable(); map.doubleClickZoom.disable(); map.touchZoom.disable();
+    }
+    return;
+  }
+
+  lockedMsg.classList.add('hidden');
+  const map = ensureLeafletMap('playerMapLeaflet', { center:[20,10], zoom:2 });
+  if(!map) return;
+  if(!map._clickBound){
+    map._clickBound = true;
+    map.on('click', function(e){
+      if(myMapMarker) map.removeLayer(myMapMarker);
+      myMapMarker = L.marker(e.latlng, { icon: coloredDivIcon('#ffb612'), draggable:true }).addTo(map);
+      submitBtn.disabled = false;
+    });
+  }
+  submitBtn.disabled = !myMapMarker;
+}
+document.getElementById('playerMapSubmitBtn').addEventListener('click', async ()=>{
+  if(!myTeam || !myMapMarker || !gameState.active_map_round_id) return;
+  const pos = myMapMarker.getLatLng();
+  await sb.from('ps_map_guesses').upsert({ round_id: gameState.active_map_round_id, team_id: myTeam.id, lat: pos.lat, lng: pos.lng, submitted_at: new Date().toISOString() }, { onConflict:'round_id,team_id' });
+  myMapMarker = null;
+  await fetchMapGuesses();
+  renderSpelare();
+});
 async function fetchBonusAnswers(){
   const qid = gameState.active_bonus_question_id || gameState.bonus_result_question_id;
   if(!qid){ bonusAnswers=[]; return; }
@@ -1022,8 +1161,8 @@ async function fetchBonusAnswers(){
 
 async function refetchAll(){
   if(!currentGame) return;
-  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState(), fetchBonusQuestions(), fetchSounds(), fetchMedia()]);
-  await fetchBonusAnswers();
+  await Promise.all([fetchTeams(), fetchJourneys(), fetchGameState(), fetchBonusQuestions(), fetchSounds(), fetchMedia(), fetchMapRounds()]);
+  await Promise.all([fetchBonusAnswers(), fetchMapGuesses()]);
   checkBuzzSound();
   renderAll();
 }
@@ -1094,13 +1233,15 @@ sb.channel('ps-live')
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_bonus_answers' }, refetchAll)
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_sounds' }, refetchAll)
   .on('postgres_changes', { event:'*', schema:'public', table:'ps_media' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_map_rounds' }, refetchAll)
+  .on('postgres_changes', { event:'*', schema:'public', table:'ps_map_guesses' }, refetchAll)
   .subscribe();
 
 /* ---------------- RENDER ROOT ---------------- */
 function renderAll(){
   if(currentMode==='admin'){
     renderScoreboardInto('scoreboard', null);
-    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab(); renderBibliotekTab(); renderManusTab();
+    renderLibrary(); renderPlayView(); renderResorTab(); renderTeamsTab(); renderMellanTab(); renderBibliotekTab(); renderManusTab(); renderKartaTab();
   } else if(currentMode==='visning'){
     renderVisning();
   } else if(currentMode==='spelare'){
@@ -1285,6 +1426,73 @@ function renderVisning(){
         <div class="desc" style="font-family:'Anton',sans-serif; font-size:28px; color:var(--gold-bright);">${max} poäng</div>
       </div>
     </div>`;
+    return;
+  }
+
+  if(gameState.map_result_round_id){
+    answerEl.classList.add('hidden');
+    syncAmbientSound(null);
+    const round = mapRounds.find(r=>r.id===gameState.map_result_round_id);
+    document.getElementById('visningSub').textContent = 'Kartfråga — resultat';
+    sbEl.classList.add('hidden');
+    const key = 'maprestult-'+gameState.map_result_round_id;
+    if(stageEl.dataset.stageKey !== key){
+      stageEl.dataset.stageKey = key;
+      destroyLeafletMap('visningMapLeaflet');
+      stageEl.innerHTML = `<div class="stage stage-full" style="display:flex; align-items:center; justify-content:center; padding:24px;">
+        <div id="visningMapWrap" style="width:min(1100px,92vw);">
+          <div id="visningMapWinnerBanner" class="map-winner-banner"></div>
+          <div id="visningMapLeaflet" class="map-leaflet"></div>
+        </div>
+      </div>`;
+    }
+    if(round){
+      const guesses = mapGuesses.filter(g=>g.round_id===round.id);
+      const distances = guesses.map(g=>{
+        const t = teams.find(x=>x.id===g.team_id);
+        return { team:t, lat:g.lat, lng:g.lng, dist: haversineKm(g.lat, g.lng, round.correct_lat, round.correct_lng) };
+      }).sort((a,b)=>a.dist-b.dist);
+      const winner = distances[0];
+      document.getElementById('visningMapWinnerBanner').textContent = winner ? `🏆 ${winner.team?winner.team.name:'?'} närmast! (${winner.dist.toFixed(0)} km från rätt plats)` : 'Inga gissningar inkomna.';
+      const map = ensureLeafletMap('visningMapLeaflet', { center:[round.correct_lat, round.correct_lng], zoom:3 });
+      if(map && map._resultKey !== key){
+        map._resultKey = key;
+        map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
+        L.marker([round.correct_lat, round.correct_lng], { icon: coloredDivIcon('#1a8f4c','✅ Rätt plats') }).addTo(map);
+        distances.forEach((d,i)=>{
+          L.marker([d.lat, d.lng], { icon: coloredDivIcon(teamColor(i), (d.team?d.team.name:'?') + ' · ' + d.dist.toFixed(0)+'km') }).addTo(map);
+        });
+        if(distances.length){
+          const bounds = L.latLngBounds([[round.correct_lat, round.correct_lng], ...distances.map(d=>[d.lat,d.lng])]);
+          map.fitBounds(bounds, { padding:[40,40] });
+        }
+      }
+    }
+    return;
+  }
+
+  if(gameState.active_map_round_id){
+    answerEl.classList.add('hidden');
+    syncAmbientSound(null);
+    const round = mapRounds.find(r=>r.id===gameState.active_map_round_id);
+    document.getElementById('visningSub').textContent = 'Kartfråga — var i världen?';
+    sbEl.classList.add('hidden');
+    const key = 'mapactive-'+gameState.active_map_round_id;
+    if(stageEl.dataset.stageKey !== key){
+      stageEl.dataset.stageKey = key;
+      destroyLeafletMap('visningMapLeaflet');
+      const guessCount = mapGuesses.filter(g=>g.round_id===gameState.active_map_round_id).length;
+      stageEl.innerHTML = `<div class="stage stage-full" style="display:flex; align-items:center; justify-content:center; padding:24px;">
+        <div style="width:min(900px,88vw); text-align:center;">
+          <img src="${escapeHtml(round?round.image_url:'')}" style="width:100%; max-height:70vh; object-fit:contain; border-radius:16px;">
+          <div style="font-family:'Anton',sans-serif; font-size:clamp(18px,3vw,28px); color:var(--gold-bright); margin-top:16px;">🗺️ Var i världen är bilden ifrån?</div>
+          <div style="color:var(--muted); margin-top:6px;" id="visningMapGuessCount">${guessCount} av ${teams.length} lag har gissat</div>
+        </div>
+      </div>`;
+    } else {
+      const cEl = document.getElementById('visningMapGuessCount');
+      if(cEl){ cEl.textContent = mapGuesses.filter(g=>g.round_id===gameState.active_map_round_id).length + ' av ' + teams.length + ' lag har gissat'; }
+    }
     return;
   }
 
@@ -2352,6 +2560,118 @@ function renderMellanTab(){
 }
 
 /* ============================================================
+   ADMIN: KARTFRÅGA TAB
+   ============================================================ */
+function renderKartaTab(){
+  document.getElementById('kartaLocked').classList.toggle('hidden', isAdmin);
+  document.getElementById('kartaAdmin').classList.toggle('hidden', !isAdmin);
+  if(!isAdmin) return;
+  renderMapRoundEditor();
+  renderMapControlPanel();
+}
+function renderMapRoundEditor(){
+  const el = document.getElementById('mapRoundEditorList');
+  const sig = JSON.stringify(mapRounds) + '|' + (gameState.active_map_round_id||'') + '|' + (gameState.map_result_round_id||'');
+  if(el.dataset.sig === sig){ return; }
+  el.dataset.sig = sig;
+  el.innerHTML = mapRounds.map((r,i)=>{
+    const isActive = gameState.active_map_round_id===r.id || gameState.map_result_round_id===r.id;
+    return `<div class="panel" style="margin-bottom:14px; ${isActive?'border-color:var(--gold-bright);':''}">
+      <h3>Omgång ${i+1}${isActive?' — 🔴 pågår':''}</h3>
+      <label>Bild-URL</label>
+      <div class="url-with-picker" style="margin-bottom:10px;">
+        <input type="text" class="mr-image" data-id="${r.id}" value="${escapeHtml(r.image_url||'')}">
+        <button type="button" class="pick-btn mr-pick" data-id="${r.id}" title="Välj från biblioteket">🖼️</button>
+      </div>
+      <div class="form-grid">
+        <div><label>Rätt latitud</label><input type="text" class="mr-lat" data-id="${r.id}" value="${r.correct_lat??''}"></div>
+        <div><label>Rätt longitud</label><input type="text" class="mr-lng" data-id="${r.id}" value="${r.correct_lng??''}"></div>
+      </div>
+      <div class="row-actions" style="margin-top:10px;">
+        <button class="btn btn-ghost btn-sm mr-save" data-id="${r.id}" type="button">Spara ändringar</button>
+        <button class="btn btn-gold btn-sm mr-activate" data-id="${r.id}" type="button" ${isActive?'disabled':''}>▶ Aktivera denna omgång</button>
+      </div>
+    </div>`;
+  }).join('') || `<p class="help">Inga kartomgångar ännu.</p>`;
+
+  el.querySelectorAll('.mr-pick').forEach(b=> b.addEventListener('click', ()=> openMediaPicker(el.querySelector(`.mr-image[data-id="${b.dataset.id}"]`))));
+  el.querySelectorAll('.mr-save').forEach(b=> b.addEventListener('click', async ()=>{
+    const id = b.dataset.id;
+    const image_url = el.querySelector(`.mr-image[data-id="${id}"]`).value.trim();
+    const lat = parseFloat(el.querySelector(`.mr-lat[data-id="${id}"]`).value);
+    const lng = parseFloat(el.querySelector(`.mr-lng[data-id="${id}"]`).value);
+    await sb.from('ps_map_rounds').update({ image_url: image_url||null, correct_lat: isNaN(lat)?null:lat, correct_lng: isNaN(lng)?null:lng }).eq('id', id);
+  }));
+  el.querySelectorAll('.mr-activate').forEach(b=> b.addEventListener('click', async ()=>{
+    if(!requireAdmin()) return;
+    await sb.from('ps_game_state').update({ active_map_round_id: b.dataset.id, map_result_round_id: null }).eq('id', gameStateRowId);
+  }));
+}
+function renderMapControlPanel(){
+  const panel = document.getElementById('mapControlPanel');
+  const roundId = gameState.active_map_round_id || gameState.map_result_round_id;
+  panel.classList.toggle('hidden', !roundId);
+  if(!roundId) return;
+  const round = mapRounds.find(r=>r.id===roundId);
+  if(!round) return;
+
+  document.getElementById('mapControlImg').innerHTML = `<img src="${escapeHtml(round.image_url||'')}" style="width:100%; max-height:220px; object-fit:contain; border-radius:10px; margin-bottom:10px;">`;
+  const guesses = mapGuesses.filter(g=>g.round_id===roundId);
+  const resultsEl = document.getElementById('mapControlResults');
+  const showBtn = document.getElementById('mapShowResultBtn');
+  const mapDiv = document.getElementById('mapControlLeaflet');
+
+  if(gameState.map_result_round_id===roundId){
+    document.getElementById('mapControlHeading').textContent = 'Resultat visas i visningsläget';
+    document.getElementById('mapControlStatus').textContent = '';
+    showBtn.classList.add('hidden');
+    mapDiv.classList.add('hidden');
+    const distances = guesses.map(g=>{
+      const t = teams.find(x=>x.id===g.team_id);
+      return { team:t, dist: haversineKm(g.lat,g.lng, round.correct_lat, round.correct_lng) };
+    }).sort((a,b)=>a.dist-b.dist);
+    resultsEl.innerHTML = distances.map((d,i)=>`
+      <div class="map-result-row ${i===0?'winner':''}">
+        <span>${i===0?'🏆 ':''}${escapeHtml(d.team?d.team.name:'?')}</span>
+        <span class="dist">${d.dist.toFixed(0)} km</span>
+      </div>`).join('') || `<p class="help">Inga gissningar kom in.</p>`;
+  } else {
+    document.getElementById('mapControlHeading').textContent = `Kartfråga pågår — ${guesses.length} av ${teams.length} lag har gissat`;
+    document.getElementById('mapControlStatus').textContent = 'Lagen ser bilden och sätter sin pin. Väntar tills alla svarat, eller visa resultat när ni vill.';
+    showBtn.classList.remove('hidden');
+    mapDiv.classList.remove('hidden');
+    resultsEl.innerHTML = '';
+    if(round.correct_lat!=null && round.correct_lng!=null){
+      const map = ensureLeafletMap('mapControlLeaflet', { center:[round.correct_lat, round.correct_lng], zoom:3 });
+      if(map && map._facitKey !== roundId){
+        map._facitKey = roundId;
+        map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
+        L.marker([round.correct_lat, round.correct_lng], { icon: coloredDivIcon('#1a8f4c','Facit (bara du ser detta)') }).addTo(map);
+      }
+    }
+  }
+}
+document.getElementById('mapShowResultBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const roundId = gameState.active_map_round_id;
+  if(!roundId) return;
+  const round = mapRounds.find(r=>r.id===roundId);
+  if(!round || round.correct_lat==null || round.correct_lng==null){ alert('Sätt rätt latitud/longitud för den här omgången först.'); return; }
+  const guesses = mapGuesses.filter(g=>g.round_id===roundId);
+  if(guesses.length){
+    const distances = guesses.map(g=>({ team_id:g.team_id, dist: haversineKm(g.lat,g.lng, round.correct_lat, round.correct_lng) })).sort((a,b)=>a.dist-b.dist);
+    const winner = distances[0];
+    await applyScoreChange(winner.team_id, 1, 'Kartfråga — närmast rätt plats');
+  }
+  await sb.from('ps_game_state').update({ map_result_round_id: roundId, active_map_round_id: null }).eq('id', gameStateRowId);
+});
+document.getElementById('mapEndRoundBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  destroyLeafletMap('mapControlLeaflet');
+  await sb.from('ps_game_state').update({ active_map_round_id: null, map_result_round_id: null }).eq('id', gameStateRowId);
+});
+
+/* ============================================================
    ADMIN: LAG TAB
    ============================================================ */
 function renderTeamsTab(){
@@ -2591,6 +2911,18 @@ function renderSpelare(){
   // bonus question active → hide the buzzer, only the answer box matters here
   const bonusBox = document.getElementById('bonusBox');
   const buzzerWrap = document.getElementById('buzzerWrap');
+  const mapBox = document.getElementById('playerMapBox');
+
+  if(gameState.active_map_round_id){
+    buzzerWrap.classList.add('hidden');
+    bonusBox.classList.add('hidden');
+    mapBox.classList.remove('hidden');
+    renderPlayerMapRound();
+    return;
+  }
+  mapBox.classList.add('hidden');
+  destroyLeafletMap('playerMapLeaflet');
+
   if(gameState.active_bonus_question_id){
     buzzerWrap.classList.add('hidden');
     const q = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id);
