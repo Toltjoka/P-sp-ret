@@ -2713,10 +2713,15 @@ function renderMapControlPanel(){
     resultsEl.innerHTML = '';
     if(round.correct_lat!=null && round.correct_lng!=null){
       const map = ensureLeafletMap('mapControlLeaflet', { center:[round.correct_lat, round.correct_lng], zoom:3 });
-      if(map && map._facitKey !== roundId){
-        map._facitKey = roundId;
+      const liveSig = roundId + '|' + guesses.map(g=>g.team_id).sort().join(',');
+      if(map && map._liveSig !== liveSig){
+        map._liveSig = liveSig;
         map.eachLayer(l=>{ if(l instanceof L.Marker) map.removeLayer(l); });
         L.marker([round.correct_lat, round.correct_lng], { icon: coloredDivIcon('#1a8f4c','Facit (bara du ser detta)') }).addTo(map);
+        guesses.forEach((g,i)=>{
+          const t = teams.find(x=>x.id===g.team_id);
+          L.marker([g.lat, g.lng], { icon: coloredDivIcon(teamColor(i), t?t.name:'?') }).addTo(map);
+        });
       }
     }
   }
