@@ -694,6 +694,7 @@
         <div id="mapControlResults" class="map-result-list"></div>
         <div class="row-actions" style="margin-top:14px;">
           <button class="btn btn-gold" id="mapShowResultBtn" type="button">Visa resultat →</button>
+          <button class="btn btn-gold hidden" id="mapNextRoundBtn" type="button">Nästa omgång →</button>
           <button class="btn btn-ghost" id="mapEndRoundBtn" type="button">✕ Avsluta den här omgången</button>
         </div>
       </div>
@@ -2000,7 +2001,18 @@ document.getElementById('brContinueBtn').addEventListener('click', async ()=>{
   const siblings = finishedQ ? bonusQuestions.filter(x=>x.journey_id===finishedQ.journey_id).sort((a,b)=>a.sort_order-b.sort_order) : [];
   const idx = finishedQ ? siblings.findIndex(x=>x.id===finishedQ.id) : -1;
   const next = idx>=0 ? (siblings[idx+1] || null) : null;
-  await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: next ? next.id : null }).eq('id', gameStateRowId);
+  if(next){
+    await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: next.id }).eq('id', gameStateRowId);
+    return;
+  }
+  // Last mellanfråga for this journey — flow straight into the map round if this journey has one.
+  const j = finishedQ ? journeys.find(x=>x.id===finishedQ.journey_id) : null;
+  const firstMapRound = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order)[0];
+  if(j && j.map_round_after && firstMapRound){
+    await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id:null, active_map_round_id: firstMapRound.id }).eq('id', gameStateRowId);
+    return;
+  }
+  await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: null }).eq('id', gameStateRowId);
 });
 
 /* ============================================================
@@ -2626,6 +2638,13 @@ function renderMapControlPanel(){
     document.getElementById('mapControlStatus').textContent = '';
     showBtn.classList.add('hidden');
     mapDiv.classList.add('hidden');
+    const sortedRounds = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order);
+    const curIdx = sortedRounds.findIndex(r=>r.id===roundId);
+    const nextRound = sortedRounds[curIdx+1] || null;
+    const nextBtn = document.getElementById('mapNextRoundBtn');
+    nextBtn.classList.toggle('hidden', !nextRound);
+    nextBtn.textContent = nextRound ? 'Nästa omgång →' : '';
+    document.getElementById('mapEndRoundBtn').textContent = nextRound ? '✕ Avsluta kartfrågan helt' : '✅ Klar med kartfrågan';
     const distances = guesses.map(g=>{
       const t = teams.find(x=>x.id===g.team_id);
       return { team:t, dist: haversineKm(g.lat,g.lng, round.correct_lat, round.correct_lng) };
@@ -2636,6 +2655,8 @@ function renderMapControlPanel(){
         <span class="dist">${d.dist.toFixed(0)} km</span>
       </div>`).join('') || `<p class="help">Inga gissningar kom in.</p>`;
   } else {
+    document.getElementById('mapNextRoundBtn').classList.add('hidden');
+    document.getElementById('mapEndRoundBtn').textContent = '✕ Avsluta den här omgången';
     document.getElementById('mapControlHeading').textContent = `Kartfråga pågår — ${guesses.length} av ${teams.length} lag har gissat`;
     document.getElementById('mapControlStatus').textContent = 'Lagen ser bilden och sätter sin pin. Väntar tills alla svarat, eller visa resultat när ni vill.';
     showBtn.classList.remove('hidden');
@@ -2664,6 +2685,14 @@ document.getElementById('mapShowResultBtn').addEventListener('click', async ()=>
     await applyScoreChange(winner.team_id, 1, 'Kartfråga — närmast rätt plats');
   }
   await sb.from('ps_game_state').update({ map_result_round_id: roundId, active_map_round_id: null }).eq('id', gameStateRowId);
+});
+document.getElementById('mapNextRoundBtn').addEventListener('click', async ()=>{
+  if(!requireAdmin()) return;
+  const sortedRounds = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order);
+  const curIdx = sortedRounds.findIndex(r=>r.id===gameState.map_result_round_id);
+  const nextRound = sortedRounds[curIdx+1] || null;
+  if(!nextRound) return;
+  await sb.from('ps_game_state').update({ map_result_round_id:null, active_map_round_id: nextRound.id }).eq('id', gameStateRowId);
 });
 document.getElementById('mapEndRoundBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
