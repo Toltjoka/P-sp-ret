@@ -55,6 +55,15 @@
   .stage.stage-lg{height:min(56vh,460px); max-width:980px;}
   .stage.stage-frozen .layer-far, .stage.stage-frozen .layer-mid, .stage.stage-frozen .layer-near{animation-play-state:paused;}
   .stage.stage-frozen .stage-photo img{animation-play-state:paused;}
+  .mini-train{position:absolute; bottom:20%; left:-70px; width:60px; height:34px; z-index:2; animation:trainMove 9s linear infinite;}
+  .stage.stage-frozen .mini-train{animation-play-state:paused;}
+  .mini-train .body{position:absolute; bottom:8px; left:0; width:52px; height:18px; background:var(--gold-bright); border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,.3);}
+  .mini-train .cabin{position:absolute; bottom:20px; left:2px; width:16px; height:12px; background:var(--gold-bright); border-radius:3px 3px 0 0;}
+  .mini-train .wheel{position:absolute; bottom:0; width:9px; height:9px; background:#081b30; border-radius:50%;}
+  .mini-train .wheel.w1{left:5px;} .mini-train .wheel.w2{left:24px;} .mini-train .wheel.w3{left:40px;}
+  .mini-train .smoke{position:absolute; bottom:30px; left:3px; width:7px; height:7px; background:rgba(244,246,242,.55); border-radius:50%; animation:smokeUp 2s ease-out infinite;}
+  @keyframes trainMove{ from{ left:-70px; } to{ left:110%; } }
+  @keyframes smokeUp{ 0%{ transform:translateY(0) scale(1); opacity:.55; } 100%{ transform:translateY(-24px) scale(2.2); opacity:0; } }
   .preload-row{display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:13px;}
   .preload-row .pr-name{flex-shrink:0; width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .preload-row .pr-bar-wrap{flex:1; height:8px; background:rgba(255,255,255,.1); border-radius:6px; overflow:hidden;}
@@ -1162,8 +1171,10 @@ function stageShell(j, size, arrived){
   }
   const hasVideo = !!j.video_url;
   const videoSrc = hasVideo ? (videoBlobCache[j.video_url] || j.video_url) : '';
+  const trainHtml = hasVideo ? '' : `<div class="mini-train"><div class="smoke"></div><div class="cabin"></div><div class="body"></div><div class="wheel w1"></div><div class="wheel w2"></div><div class="wheel w3"></div></div>`;
   return `<div class="stage ${size}">
     <div class="sky"></div><div class="layer layer-far"></div><div class="layer layer-mid"></div><div class="layer layer-near"></div>
+    ${trainHtml}
     <div class="stage-photo ${hasVideo?'show':''}">${
       hasVideo ? `<video class="journey-video" src="${escapeHtml(videoSrc)}" muted loop playsinline preload="auto"></video>` : ''
     }</div>
