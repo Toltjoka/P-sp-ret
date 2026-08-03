@@ -1987,6 +1987,13 @@ document.getElementById('nextBonusBtn').addEventListener('click', async ()=>{
 });
 document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
+  const curQ = bonusQuestions.find(x=>x.id===gameState.active_bonus_question_id || x.id===gameState.bonus_result_question_id);
+  const j = curQ ? journeys.find(x=>x.id===curQ.journey_id) : null;
+  const firstMapRound = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order)[0];
+  if(j && j.map_round_after && firstMapRound){
+    await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null, active_map_round_id: firstMapRound.id }).eq('id', gameStateRowId);
+    return;
+  }
   await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null }).eq('id', gameStateRowId);
 });
 
