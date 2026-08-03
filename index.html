@@ -977,13 +977,13 @@ function updateAuthUI(){
 function requireAdmin(){ if(!isAdmin){ openLogin(); return false; } return true; }
 
 /* ---------------- NAV (admin tabs) ---------------- */
+function switchAdminTab(tab){
+  document.querySelectorAll('.nav button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  ['spela','resor','mellan','karta','manus','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== tab));
+  renderAll();
+}
 document.querySelectorAll('.nav button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    ['spela','resor','mellan','karta','manus','bibliotek','lag'].forEach(t=> document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab));
-    renderAll();
-  });
+  btn.addEventListener('click', ()=> switchAdminTab(btn.dataset.tab));
 });
 
 /* ---------------- FETCH ---------------- */
@@ -1995,6 +1995,7 @@ document.getElementById('endBonusBtn').addEventListener('click', async ()=>{
   const firstMapRound = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order)[0];
   if(j && j.map_round_after && firstMapRound){
     await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null, active_map_round_id: firstMapRound.id }).eq('id', gameStateRowId);
+    switchAdminTab('karta');
     return;
   }
   await sb.from('ps_game_state').update({ active_bonus_question_id:null, bonus_result_question_id:null }).eq('id', gameStateRowId);
@@ -2026,13 +2027,9 @@ document.getElementById('brContinueBtn').addEventListener('click', async ()=>{
   // Last mellanfråga for this journey — flow straight into the map round if this journey has one.
   const j = finishedQ ? journeys.find(x=>x.id===finishedQ.journey_id) : null;
   const firstMapRound = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order)[0];
-  alert('DEBUG:\nfinishedQ: '+(finishedQ?finishedQ.title+' / journey_id='+finishedQ.journey_id:'null')
-    +'\nj (journey found): '+(j?j.title:'null')
-    +'\nj.map_round_after: '+(j?j.map_round_after:'n/a')
-    +'\nmapRounds.length: '+mapRounds.length
-    +'\nfirstMapRound: '+(firstMapRound?firstMapRound.notes:'null'));
   if(j && j.map_round_after && firstMapRound){
     await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id:null, active_map_round_id: firstMapRound.id }).eq('id', gameStateRowId);
+    switchAdminTab('karta');
     return;
   }
   await sb.from('ps_game_state').update({ bonus_result_question_id:null, active_bonus_question_id: null }).eq('id', gameStateRowId);
@@ -2726,6 +2723,7 @@ document.getElementById('mapEndRoundBtn').addEventListener('click', async ()=>{
   if(!requireAdmin()) return;
   destroyLeafletMap('mapControlLeaflet');
   await sb.from('ps_game_state').update({ active_map_round_id: null, map_result_round_id: null }).eq('id', gameStateRowId);
+  switchAdminTab('spela');
 });
 
 /* ============================================================
