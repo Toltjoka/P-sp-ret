@@ -1077,10 +1077,21 @@ async function fetchSounds(){ const {data} = await sb.from('ps_sounds').select('
 async function fetchMedia(){ const {data} = await sb.from('ps_media').select('*').order('created_at', {ascending:false}); media = data||[]; }
 async function fetchMapRounds(){ const {data} = await sb.from('ps_map_rounds').select('*').eq('game_id', currentGame.id).order('sort_order'); mapRounds = data||[]; }
 async function fetchMapGuesses(){
-  const roundId = gameState.active_map_round_id || gameState.map_result_round_id;
-  if(!roundId){ mapGuesses = []; return; }
-  const { data } = await sb.from('ps_map_guesses').select('*').eq('round_id', roundId);
+  const roundIds = mapRounds.map(r=>r.id);
+  if(!roundIds.length){ mapGuesses = []; return; }
+  const { data } = await sb.from('ps_map_guesses').select('*').in('round_id', roundIds);
   mapGuesses = data||[];
+}
+function computeMapRoundWinners(uptoSortOrder){
+  // Tally, per team, how many map rounds (up to and including uptoSortOrder) they were closest in.
+  const tally = {};
+  mapRounds.filter(r=>r.sort_order<=uptoSortOrder).forEach(r=>{
+    const guesses = mapGuesses.filter(g=>g.round_id===r.id);
+    if(!guesses.length || r.correct_lat==null || r.correct_lng==null) return;
+    const closest = guesses.map(g=>({ team_id:g.team_id, dist: haversineKm(g.lat,g.lng,r.correct_lat,r.correct_lng) })).sort((a,b)=>a.dist-b.dist)[0];
+    tally[closest.team_id] = (tally[closest.team_id]||0) + 1;
+  });
+  return tally;
 }
 function haversineKm(lat1,lng1,lat2,lng2){
   const R = 6371;
@@ -1457,7 +1468,12 @@ function renderVisning(){
         return { team:t, lat:g.lat, lng:g.lng, dist: haversineKm(g.lat, g.lng, round.correct_lat, round.correct_lng) };
       }).sort((a,b)=>a.dist-b.dist);
       const winner = distances[0];
-      document.getElementById('visningMapWinnerBanner').textContent = winner ? `🏆 ${winner.team?winner.team.name:'?'} närmast! (${winner.dist.toFixed(0)} km från rätt plats)` : 'Inga gissningar inkomna.';
+      const tally = computeMapRoundWinners(round.sort_order);
+      const decidedTeamId = Object.keys(tally).find(tid=>tally[tid]>=3);
+      const decidedTeam = decidedTeamId ? teams.find(t=>t.id===decidedTeamId) : null;
+      document.getElementById('visningMapWinnerBanner').textContent = decidedTeam
+        ? `🏆🏆🏆 ${decidedTeam.name} har vunnit kartfrågan!`
+        : (winner ? `🏆 ${winner.team?winner.team.name:'?'} närmast! (${winner.dist.toFixed(0)} km från rätt plats)` : 'Inga gissningar inkomna.');
       const map = ensureLeafletMap('visningMapLeaflet', { center:[round.correct_lat, round.correct_lng], zoom:3 });
       if(map && map._resultKey !== key){
         map._resultKey = key;
@@ -2654,26 +2670,31 @@ function renderMapControlPanel(){
   const mapDiv = document.getElementById('mapControlLeaflet');
 
   if(gameState.map_result_round_id===roundId){
-    document.getElementById('mapControlHeading').textContent = 'Resultat visas i visningsläget';
     document.getElementById('mapControlStatus').textContent = '';
     showBtn.classList.add('hidden');
     mapDiv.classList.add('hidden');
     const sortedRounds = mapRounds.slice().sort((a,b)=>a.sort_order-b.sort_order);
     const curIdx = sortedRounds.findIndex(r=>r.id===roundId);
     const nextRound = sortedRounds[curIdx+1] || null;
+    const tally = computeMapRoundWinners(round.sort_order);
+    const decidedTeamId = Object.keys(tally).find(tid=>tally[tid]>=3);
+    const gameOver = !!decidedTeamId || !nextRound;
     const nextBtn = document.getElementById('mapNextRoundBtn');
-    nextBtn.classList.toggle('hidden', !nextRound);
-    nextBtn.textContent = nextRound ? 'Nästa omgång →' : '';
-    document.getElementById('mapEndRoundBtn').textContent = nextRound ? '✕ Avsluta kartfrågan helt' : '✅ Klar med kartfrågan';
+    nextBtn.classList.toggle('hidden', gameOver);
+    nextBtn.textContent = gameOver ? '' : 'Nästa omgång →';
+    document.getElementById('mapEndRoundBtn').textContent = gameOver ? '✅ Klar med kartfrågan' : '✕ Avsluta kartfrågan helt';
+    const decidedTeam = decidedTeamId ? teams.find(t=>t.id===decidedTeamId) : null;
+    document.getElementById('mapControlHeading').textContent = decidedTeam ? `🏆 ${decidedTeam.name} har vunnit kartfrågan (${tally[decidedTeamId]} av 3)!` : 'Resultat visas i visningsläget';
     const distances = guesses.map(g=>{
       const t = teams.find(x=>x.id===g.team_id);
       return { team:t, dist: haversineKm(g.lat,g.lng, round.correct_lat, round.correct_lng) };
     }).sort((a,b)=>a.dist-b.dist);
+    const tallyRows = teams.map(t=>`<div class="map-result-row"><span>${escapeHtml(t.name)}</span><span class="dist">${tally[t.id]||0} vunna omgångar</span></div>`).join('');
     resultsEl.innerHTML = distances.map((d,i)=>`
       <div class="map-result-row ${i===0?'winner':''}">
         <span>${i===0?'🏆 ':''}${escapeHtml(d.team?d.team.name:'?')}</span>
         <span class="dist">${d.dist.toFixed(0)} km</span>
-      </div>`).join('') || `<p class="help">Inga gissningar kom in.</p>`;
+      </div>`).join('') + '<div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,.1);">' + tallyRows + '</div>';
   } else {
     document.getElementById('mapNextRoundBtn').classList.add('hidden');
     document.getElementById('mapEndRoundBtn').textContent = '✕ Avsluta den här omgången';
