@@ -1105,8 +1105,11 @@ function ensureLeafletMap(containerId, opts){
   const el = document.getElementById(containerId);
   if(!el) return null;
   const map = L.map(containerId, { worldCopyJump:true }).setView(opts.center||[20,10], opts.zoom||2);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 19
+  // Label-free tiles on purpose — a normal map shows city/country names, which
+  // would let teams "cheat" by just zooming in and reading the answer off the
+  // map instead of actually recognizing the photo.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO', maxZoom: 19, subdomains:'abcd'
   }).addTo(map);
   leafletMaps[containerId] = map;
   return map;
