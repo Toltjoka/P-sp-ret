@@ -1479,20 +1479,28 @@ function renderVisning(){
     document.getElementById('visningSub').textContent = 'Kartfråga — var i världen?';
     sbEl.classList.add('hidden');
     const key = 'mapactive-'+gameState.active_map_round_id;
+    const teamDotsHtml = ()=> teams.map(t=>{
+      const done = mapGuesses.some(g=>g.round_id===gameState.active_map_round_id && g.team_id===t.id);
+      return `<span style="display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.08); border-radius:24px; padding:8px 16px; font-size:clamp(13px,1.6vw,16px); font-weight:600;">
+        <span style="width:11px; height:11px; border-radius:50%; background:${done?'#1a8f4c':'#666'}; flex-shrink:0; ${done?'box-shadow:0 0 8px #1a8f4c;':''}"></span>${escapeHtml(t.name)}</span>`;
+    }).join('');
     if(stageEl.dataset.stageKey !== key){
       stageEl.dataset.stageKey = key;
       destroyLeafletMap('visningMapLeaflet');
       const guessCount = mapGuesses.filter(g=>g.round_id===gameState.active_map_round_id).length;
       stageEl.innerHTML = `<div class="stage stage-full" style="display:flex; align-items:center; justify-content:center; padding:24px;">
         <div style="width:min(900px,88vw); text-align:center;">
-          <img src="${escapeHtml(round?round.image_url:'')}" style="width:100%; max-height:70vh; object-fit:contain; border-radius:16px;">
+          <img src="${escapeHtml(round?round.image_url:'')}" style="width:100%; max-height:65vh; object-fit:contain; border-radius:16px;">
           <div style="font-family:'Anton',sans-serif; font-size:clamp(18px,3vw,28px); color:var(--gold-bright); margin-top:16px;">🗺️ Var i världen är bilden ifrån?</div>
           <div style="color:var(--muted); margin-top:6px;" id="visningMapGuessCount">${guessCount} av ${teams.length} lag har gissat</div>
+          <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:14px;" id="visningMapDots">${teamDotsHtml()}</div>
         </div>
       </div>`;
     } else {
       const cEl = document.getElementById('visningMapGuessCount');
       if(cEl){ cEl.textContent = mapGuesses.filter(g=>g.round_id===gameState.active_map_round_id).length + ' av ' + teams.length + ' lag har gissat'; }
+      const dEl = document.getElementById('visningMapDots');
+      if(dEl){ dEl.innerHTML = teamDotsHtml(); }
     }
     return;
   }
@@ -2658,7 +2666,12 @@ function renderMapControlPanel(){
     document.getElementById('mapNextRoundBtn').classList.add('hidden');
     document.getElementById('mapEndRoundBtn').textContent = '✕ Avsluta den här omgången';
     document.getElementById('mapControlHeading').textContent = `Kartfråga pågår — ${guesses.length} av ${teams.length} lag har gissat`;
-    document.getElementById('mapControlStatus').textContent = 'Lagen ser bilden och sätter sin pin. Väntar tills alla svarat, eller visa resultat när ni vill.';
+    document.getElementById('mapControlStatus').innerHTML = 'Lagen ser bilden och sätter sin pin. Väntar tills alla svarat, eller visa resultat när ni vill.'
+      + '<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">' + teams.map(t=>{
+        const done = guesses.some(g=>g.team_id===t.id);
+        return `<span style="display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.06); border-radius:20px; padding:5px 12px; font-size:12.5px;">
+          <span style="width:9px; height:9px; border-radius:50%; background:${done?'#1a8f4c':'#555'}; flex-shrink:0;"></span>${escapeHtml(t.name)}</span>`;
+      }).join('') + '</div>';
     showBtn.classList.remove('hidden');
     mapDiv.classList.remove('hidden');
     resultsEl.innerHTML = '';
