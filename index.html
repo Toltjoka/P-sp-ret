@@ -1507,9 +1507,12 @@ function renderVisning(){
       stageEl.dataset.stageKey = key;
       destroyLeafletMap('visningMapLeaflet');
       const guessCount = mapGuesses.filter(g=>g.round_id===gameState.active_map_round_id).length;
+      const priorTally = round ? computeMapRoundWinners(round.sort_order - 1) : {};
+      const standingsHtml = teams.map(t=>`<span style="display:inline-flex; align-items:center; gap:8px; font-size:clamp(13px,1.6vw,16px); font-weight:700; color:var(--gold-bright);">${escapeHtml(t.name)}: ${priorTally[t.id]||0}</span>`).join('<span style="color:var(--muted);">·</span>');
       stageEl.innerHTML = `<div class="stage stage-full" style="display:flex; align-items:center; justify-content:center; padding:24px;">
         <div style="width:min(900px,88vw); text-align:center;">
-          <img src="${escapeHtml(round?round.image_url:'')}" style="width:100%; max-height:65vh; object-fit:contain; border-radius:16px;">
+          <div style="display:flex; gap:14px; justify-content:center; margin-bottom:14px;">${standingsHtml}</div>
+          <img src="${escapeHtml(round?round.image_url:'')}" style="width:100%; max-height:60vh; object-fit:contain; border-radius:16px;">
           <div style="font-family:'Anton',sans-serif; font-size:clamp(18px,3vw,28px); color:var(--gold-bright); margin-top:16px;">🗺️ Var i världen är bilden ifrån?</div>
           <div style="color:var(--muted); margin-top:6px;" id="visningMapGuessCount">${guessCount} av ${teams.length} lag har gissat</div>
           <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:14px;" id="visningMapDots">${teamDotsHtml()}</div>
